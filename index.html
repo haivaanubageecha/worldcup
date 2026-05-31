@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>World Cup Predictor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">26</div>
+          <div>
+            <p class="eyebrow">Office League</p>
+            <h1>World Cup Predictor</h1>
+          </div>
+        </div>
+
+        <section class="panel sign-in-panel" id="signInPanel">
+          <p class="panel-title">Join with email</p>
+          <form id="loginForm" class="login-form">
+            <label>
+              <span>Email</span>
+              <input id="emailInput" name="email" type="email" autocomplete="email" placeholder="name@company.com" required />
+            </label>
+            <label>
+              <span>Display name</span>
+              <input id="nameInput" name="name" type="text" autocomplete="name" placeholder="Sam" maxlength="32" />
+            </label>
+            <button type="submit">Enter league</button>
+          </form>
+          <p class="hint">This prototype stores predictions in this browser. Add a backend later for shared live scoring.</p>
+        </section>
+
+        <section class="panel profile-panel hidden" id="profilePanel">
+          <p class="panel-title">Signed in</p>
+          <div class="profile-card">
+            <div class="avatar" id="avatar">?</div>
+            <div>
+              <strong id="profileName">Player</strong>
+              <span id="profileEmail">email</span>
+            </div>
+          </div>
+          <label class="upload-label">
+            <span>Profile picture</span>
+            <input id="photoInput" type="file" accept="image/*" />
+          </label>
+          <button class="ghost" id="switchUserButton" type="button">Switch user</button>
+        </section>
+
+        <section class="panel rules">
+          <p class="panel-title">Scoring</p>
+          <div class="rule-row"><span>Exact score</span><strong>5 pts</strong></div>
+          <div class="rule-row"><span>Goal difference</span><strong>3 pts</strong></div>
+          <div class="rule-row"><span>Correct result</span><strong>1 pt</strong></div>
+          <div class="rule-row"><span>Miss</span><strong>0 pts</strong></div>
+        </section>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">FIFA World Cup 2026</p>
+            <h2>Predict scores, then let the table do the talking.</h2>
+          </div>
+          <div class="actions">
+            <button class="icon-button" id="exportButton" type="button" title="Export predictions" aria-label="Export predictions">
+              <span aria-hidden="true">↓</span>
+            </button>
+            <button class="icon-button" id="resetButton" type="button" title="Reset demo data" aria-label="Reset demo data">
+              <span aria-hidden="true">↺</span>
+            </button>
+          </div>
+        </header>
+
+        <nav class="tabs" aria-label="Views">
+          <button class="tab active" data-view="predictions" type="button">Predictions</button>
+          <button class="tab" data-view="leaderboard" type="button">Leaderboard</button>
+          <button class="tab" data-view="fixtures" type="button">Results</button>
+        </nav>
+
+        <section id="predictionsView" class="view active">
+          <div class="toolbar">
+            <label class="search">
+              <span>Search</span>
+              <input id="matchSearch" type="search" placeholder="Team, city, or group" />
+            </label>
+            <label class="filter">
+              <span>Round</span>
+              <select id="roundFilter">
+                <option value="all">All rounds</option>
+              </select>
+            </label>
+          </div>
+          <div id="matchesList" class="matches"></div>
+        </section>
+
+        <section id="leaderboardView" class="view">
+          <div class="leaderboard-head">
+            <div>
+              <p class="eyebrow">Live standings</p>
+              <h3>Colleague leaderboard</h3>
+            </div>
+            <button id="addResultButton" class="secondary" type="button">Update match results</button>
+          </div>
+          <div id="leaderboard" class="leaderboard"></div>
+          <div id="resultsEditor" class="results-editor hidden"></div>
+        </section>
+
+        <section id="fixturesView" class="view">
+          <div class="fixture-editor">
+            <div>
+              <p class="eyebrow">Admin</p>
+              <h3>Add a fixture</h3>
+            </div>
+            <form id="fixtureForm" class="fixture-form">
+              <input id="teamAInput" type="text" placeholder="Team A" required />
+              <input id="teamBInput" type="text" placeholder="Team B" required />
+              <input id="roundInput" type="text" placeholder="Group / Round" required />
+              <input id="dateInput" type="datetime-local" required />
+              <input id="venueInput" type="text" placeholder="Venue" required />
+              <button type="submit">Add fixture</button>
+            </form>
+          </div>
+          <div id="fixtureList" class="fixture-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="matchTemplate">
+      <article class="match-card">
+        <div class="match-meta">
+          <span class="round"></span>
+          <span class="date"></span>
+        </div>
+        <div class="match-body">
+          <div class="team team-a"></div>
+          <form class="score-form">
+            <input class="score score-a" type="number" inputmode="numeric" min="0" max="20" aria-label="Team A score" />
+            <span>:</span>
+            <input class="score score-b" type="number" inputmode="numeric" min="0" max="20" aria-label="Team B score" />
+            <button type="submit">Save</button>
+          </form>
+          <div class="team team-b"></div>
+        </div>
+        <p class="venue"></p>
+        <p class="match-result"></p>
+      </article>
+    </template>
+
+    <script src="fixtures.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
