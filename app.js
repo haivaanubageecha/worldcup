@@ -1,6 +1,7 @@
 const STORAGE_KEY = "worldCupPredictorState";
 const DISPLAY_TIME_ZONE = "Indian/Maldives";
 const DISPLAY_TIME_ZONE_LABEL = "MVT";
+const ADMIN_EMAILS = ["ahmedsimaaz09@gmail.com"];
 const FLAG_BY_TEAM = {
   Algeria: "🇩🇿",
   Argentina: "🇦🇷",
@@ -60,8 +61,72 @@ const FLAG_BY_TEAM = {
   Uzbekistan: "🇺🇿"
 };
 
+const FLAG_CODE_BY_TEAM = {
+  Algeria: "DZ",
+  Argentina: "AR",
+  Australia: "AU",
+  Austria: "AT",
+  Belgium: "BE",
+  "Bosnia and Herzegovina": "BA",
+  Brazil: "BR",
+  Canada: "CA",
+  "Cabo Verde": "CV",
+  "Cape Verde": "CV",
+  Colombia: "CO",
+  "Cote d'Ivoire": "CI",
+  Croatia: "HR",
+  Curacao: "CW",
+  "Curaçao": "CW",
+  Czechia: "CZ",
+  "Congo DR": "CD",
+  "DR Congo": "CD",
+  Ecuador: "EC",
+  Egypt: "EG",
+  England: "GB-ENG",
+  France: "FR",
+  Germany: "DE",
+  Ghana: "GH",
+  Haiti: "HT",
+  Iran: "IR",
+  Iraq: "IQ",
+  "Ivory Coast": "CI",
+  Japan: "JP",
+  Jordan: "JO",
+  Mexico: "MX",
+  Morocco: "MA",
+  Netherlands: "NL",
+  "New Zealand": "NZ",
+  Norway: "NO",
+  Panama: "PA",
+  Paraguay: "PY",
+  Portugal: "PT",
+  Qatar: "QA",
+  "Saudi Arabia": "SA",
+  Scotland: "GB-SCT",
+  Senegal: "SN",
+  "South Africa": "ZA",
+  "Korea Republic": "KR",
+  "South Korea": "KR",
+  Spain: "ES",
+  Sweden: "SE",
+  Switzerland: "CH",
+  Tunisia: "TN",
+  Turkiye: "TR",
+  Turkey: "TR",
+  Türkiye: "TR",
+  Uruguay: "UY",
+  USA: "US",
+  "United States": "US",
+  Uzbekistan: "UZ"
+};
+
 let state = loadState();
 let selectedLeaderboardEmail = null;
+const backend = {
+  client: null,
+  ready: false,
+  syncing: false
+};
 
 const loginPanel = document.querySelector("#signInPanel");
 const profilePanel = document.querySelector("#profilePanel");
@@ -80,6 +145,7 @@ const addResultButton = document.querySelector("#addResultButton");
 const fixtureList = document.querySelector("#fixtureList");
 const exportButton = document.querySelector("#exportButton");
 const resetButton = document.querySelector("#resetButton");
+const syncStatus = document.querySelector("#syncStatus");
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => showView(tab.dataset.view));
@@ -100,6 +166,7 @@ loginForm.addEventListener("submit", (event) => {
   state.users[email] = state.users[email] || { email, name };
   state.users[email].name = name;
   saveState();
+  syncPlayerToBackend(state.users[email]);
   loginForm.reset();
   render();
 });
@@ -118,6 +185,7 @@ photoInput.addEventListener("change", async () => {
   user.photo = await readImageAsDataUrl(file);
   photoInput.value = "";
   saveState();
+  syncPlayerToBackend(user);
   render();
 });
 
@@ -125,12 +193,14 @@ matchSearch.addEventListener("input", renderMatches);
 roundFilter.addEventListener("change", renderMatches);
 
 addResultButton.addEventListener("click", () => {
+  if (!isAdminUser()) return;
   resultsEditor.classList.toggle("hidden");
   renderResultsEditor();
 });
 
 document.querySelector("#fixturesView").addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!isAdminUser()) return;
   const form = event.target;
   const inputs = Array.from(form.querySelectorAll("input"));
   const [teamA, teamB, round, date, venue] = inputs.map((input) => input.value.trim());
@@ -194,6 +264,191 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+function getBackendConfig() {
+  return window.WORLD_CUP_BACKEND || {};
+}
+
+function isBackendConfigured() {
+  const config = getBackendConfig();
+  return Boolean(config.supabaseUrl && config.supabaseAnonKey && window.supabase?.createClient);
+}
+
+async function initBackend() {
+  if (!isBackendConfigured()) {
+    renderSyncStatus();
+    return;
+  }
+
+  const config = getBackendConfig();
+  backend.client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+  backend.ready = true;
+  renderSyncStatus("Connecting to shared database...");
+
+  loadSharedState()
+    .then(pushLocalStateToBackend)
+    .catch((error) => {
+      console.error(error);
+      renderSyncStatus("Shared database connection failed. Local changes are still saved in this browser.");
+    });
+
+  window.setInterval(loadSharedState, 30000);
+}
+
+async function loadSharedState() {
+  if (!backend.ready || backend.syncing) return;
+
+  backend.syncing = true;
+  try {
+    const [
+      { data: players, error: playersError },
+      { data: predictions, error: predictionsError },
+      { data: results, error: resultsError },
+      { data: fixtureOverrides, error: fixtureOverridesError }
+    ] =
+      await Promise.all([
+        backend.client.from("players").select("*"),
+        backend.client.from("predictions").select("*"),
+        backend.client.from("results").select("*"),
+        backend.client.from("fixture_overrides").select("*")
+      ]);
+
+    if (playersError || predictionsError || resultsError || fixtureOverridesError) {
+      throw playersError || predictionsError || resultsError || fixtureOverridesError;
+    }
+
+    applySharedRows({ players, predictions, results, fixtureOverrides });
+    saveState();
+    render();
+    renderSyncStatus();
+  } catch (error) {
+    console.error(error);
+    renderSyncStatus("Shared database connection failed. Local changes are still saved in this browser.");
+  } finally {
+    backend.syncing = false;
+  }
+}
+
+function applySharedRows({ players = [], predictions = [], results = [], fixtureOverrides = [] }) {
+  players.forEach((player) => {
+    state.users[player.email] = {
+      email: player.email,
+      name: player.name,
+      photo: player.photo || ""
+    };
+  });
+
+  predictions.forEach((prediction) => {
+    state.predictions[prediction.email] = state.predictions[prediction.email] || {};
+    state.predictions[prediction.email][prediction.fixture_id] = {
+      scoreA: prediction.score_a,
+      scoreB: prediction.score_b,
+      savedAt: prediction.saved_at
+    };
+  });
+
+  const resultByFixture = new Map(results.map((result) => [result.fixture_id, result]));
+  const overrideByFixture = new Map(fixtureOverrides.map((override) => [override.fixture_id, override]));
+  state.fixtures = state.fixtures.map((fixture) => {
+    const result = resultByFixture.get(fixture.id);
+    const override = overrideByFixture.get(fixture.id);
+    return {
+      ...fixture,
+      teamA: override?.team_a || fixture.teamA,
+      teamB: override?.team_b || fixture.teamB,
+      round: override?.round || fixture.round,
+      venue: override?.venue || fixture.venue,
+      date: override?.kickoff_at || fixture.date,
+      result: result
+        ? {
+            scoreA: result.score_a,
+            scoreB: result.score_b
+          }
+        : fixture.result
+    };
+  });
+}
+
+async function pushLocalStateToBackend() {
+  if (!backend.ready) return;
+
+  await Promise.all(Object.values(state.users).map((user) => syncPlayerToBackend(user)));
+
+  const predictionWrites = [];
+  Object.entries(state.predictions).forEach(([email, predictions]) => {
+    Object.entries(predictions).forEach(([fixtureId, prediction]) => {
+      predictionWrites.push(syncPredictionToBackend(email, fixtureId, prediction));
+    });
+  });
+
+  const resultWrites = state.fixtures.filter((fixture) => fixture.result).map((fixture) => syncResultToBackend(fixture));
+  await Promise.all([...predictionWrites, ...resultWrites]);
+}
+
+async function syncPlayerToBackend(user) {
+  if (!backend.ready || !user?.email) return;
+
+  const { error } = await backend.client.from("players").upsert(
+    {
+      email: user.email,
+      name: user.name || user.email.split("@")[0],
+      photo: user.photo || null,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "email" }
+  );
+  if (error) console.error(error);
+}
+
+async function syncPredictionToBackend(email, fixtureId, prediction) {
+  if (!backend.ready || !email || !prediction) return;
+
+  await syncPlayerToBackend(state.users[email] || { email, name: email.split("@")[0] });
+  const { error } = await backend.client.from("predictions").upsert(
+    {
+      email,
+      fixture_id: fixtureId,
+      score_a: prediction.scoreA,
+      score_b: prediction.scoreB,
+      saved_at: prediction.savedAt || new Date().toISOString()
+    },
+    { onConflict: "email,fixture_id" }
+  );
+  if (error) console.error(error);
+}
+
+async function syncResultToBackend(fixture) {
+  if (!backend.ready || !fixture?.result) return;
+
+  const { error } = await backend.client.from("results").upsert(
+    {
+      fixture_id: fixture.id,
+      score_a: fixture.result.scoreA,
+      score_b: fixture.result.scoreB,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "fixture_id" }
+  );
+  if (error) console.error(error);
+}
+
+async function syncFixtureOverrideToBackend(fixture) {
+  if (!backend.ready || !fixture?.id || !isAdminUser()) return;
+
+  const { error } = await backend.client.from("fixture_overrides").upsert(
+    {
+      fixture_id: fixture.id,
+      team_a: fixture.teamA,
+      team_b: fixture.teamB,
+      round: fixture.round,
+      venue: fixture.venue,
+      kickoff_at: new Date(fixture.date).toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "fixture_id" }
+  );
+  if (error) console.error(error);
+}
+
 function cloneOfficialFixtures() {
   return WORLD_CUP_FIXTURES.map((fixture) => ({ ...fixture, result: fixture.result ? { ...fixture.result } : null }));
 }
@@ -213,6 +468,7 @@ function syncOfficialFixtures(nextState) {
 }
 
 function render() {
+  renderSyncStatus();
   renderSession();
   renderRoundFilter();
   renderMatches();
@@ -221,10 +477,23 @@ function render() {
   renderResultsEditor();
 }
 
+function renderSyncStatus(message) {
+  if (!syncStatus) return;
+  if (message) {
+    syncStatus.textContent = message;
+    return;
+  }
+  syncStatus.textContent = backend.ready
+    ? "Shared mode: players, predictions, and results sync to the database."
+    : "Local mode: predictions are stored in this browser until backend config is added.";
+}
+
 function renderSession() {
   const user = getCurrentUser();
   loginPanel.classList.toggle("hidden", Boolean(user));
   profilePanel.classList.toggle("hidden", !user);
+  addResultButton.classList.toggle("hidden", !isAdminUser());
+  document.querySelector(".fixture-editor")?.classList.toggle("hidden", !isAdminUser());
 
   if (!user) return;
 
@@ -269,8 +538,8 @@ function renderMatches() {
     card.classList.toggle("locked", locked);
     card.querySelector(".round").textContent = fixture.round;
     card.querySelector(".date").textContent = formatDate(fixture.date);
-    card.querySelector(".team-a").textContent = formatTeam(fixture.teamA);
-    card.querySelector(".team-b").textContent = formatTeam(fixture.teamB);
+    card.querySelector(".team-a").innerHTML = formatTeamHtml(fixture.teamA);
+    card.querySelector(".team-b").innerHTML = formatTeamHtml(fixture.teamB);
     card.querySelector(".venue").textContent = fixture.venue;
     card.querySelector(".match-result").textContent = formatResult(fixture);
     card.querySelector(".match-result").classList.toggle("empty-result", !fixture.result);
@@ -291,6 +560,7 @@ function renderMatches() {
       state.predictions[user.email] = state.predictions[user.email] || {};
       state.predictions[user.email][fixture.id] = { scoreA, scoreB, savedAt: new Date().toISOString() };
       saveState();
+      syncPredictionToBackend(user.email, fixture.id, state.predictions[user.email][fixture.id]);
       renderLeaderboard();
     });
     matchesList.append(card);
@@ -414,32 +684,37 @@ function renderPlayerPredictions() {
 
 function renderPredictionDetailRow(fixture, prediction) {
   const canShowPrediction = isFixtureLocked(fixture) || fixture.result;
+  const outcome = fixture.result && canShowPrediction ? getPredictionOutcome(prediction, fixture.result) : { key: "pending", points: "-" };
   const predictionText = canShowPrediction ? `${prediction.scoreA}-${prediction.scoreB}` : "Hidden until kickoff";
   const resultText = fixture.result ? `${fixture.result.scoreA}-${fixture.result.scoreB}` : "Pending";
-  const pointsText = fixture.result && canShowPrediction ? pointsForPrediction(prediction, fixture.result) : "-";
 
   return `
-    <div class="prediction-detail-row">
+    <div class="prediction-detail-row outcome-${outcome.key}">
       <div>
-        <strong>${escapeHtml(formatTeam(fixture.teamA))} vs ${escapeHtml(formatTeam(fixture.teamB))}</strong>
+        <strong>${formatTeamHtml(fixture.teamA)} vs ${formatTeamHtml(fixture.teamB)}</strong>
         <span>${escapeHtml(fixture.round)} · ${formatDate(fixture.date)}</span>
       </div>
       <div><span>Prediction</span><strong>${escapeHtml(predictionText)}</strong></div>
       <div><span>Result</span><strong>${escapeHtml(resultText)}</strong></div>
-      <div><span>Points</span><strong>${pointsText}</strong></div>
+      <div><span>Points</span><strong>${outcome.points}</strong></div>
     </div>
   `;
 }
 
 function renderResultsEditor() {
   if (resultsEditor.classList.contains("hidden")) return;
+  if (!isAdminUser()) {
+    resultsEditor.innerHTML = "";
+    resultsEditor.classList.add("hidden");
+    return;
+  }
 
   resultsEditor.innerHTML = state.fixtures
     .map((fixture) => {
       const result = fixture.result || {};
       return `
         <form class="result-row" data-fixture-id="${fixture.id}">
-          <strong>${escapeHtml(formatTeam(fixture.teamA))} vs ${escapeHtml(formatTeam(fixture.teamB))}</strong>
+          <strong>${formatTeamHtml(fixture.teamA)} vs ${formatTeamHtml(fixture.teamB)}</strong>
           <input type="number" min="0" max="20" value="${result.scoreA ?? ""}" aria-label="${escapeHtml(fixture.teamA)} result" />
           <input type="number" min="0" max="20" value="${result.scoreB ?? ""}" aria-label="${escapeHtml(fixture.teamB)} result" />
           <button type="submit">Save result</button>
@@ -458,26 +733,23 @@ function renderResultsEditor() {
       if (!fixture || !Number.isInteger(scoreA) || !Number.isInteger(scoreB)) return;
       fixture.result = { scoreA, scoreB };
       saveState();
+      syncResultToBackend(fixture);
       renderLeaderboard();
     });
   });
 }
 
 function renderFixtureList() {
+  const canEditResults = isAdminUser();
   fixtureList.innerHTML = state.fixtures
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .map(
       (fixture) => `
         <form class="fixture-row" data-fixture-id="${fixture.id}">
-          <strong>${escapeHtml(formatTeam(fixture.teamA))} vs ${escapeHtml(formatTeam(fixture.teamB))}</strong>
+          ${canEditResults ? renderEditableFixtureTeams(fixture) : `<strong>${formatTeamHtml(fixture.teamA)} vs ${formatTeamHtml(fixture.teamB)}</strong>`}
           <span>${escapeHtml(fixture.round)}</span>
           <span>${formatDate(fixture.date)}</span>
-          <div class="fixture-result">
-            <input type="number" min="0" max="20" value="${fixture.result?.scoreA ?? ""}" aria-label="${escapeHtml(fixture.teamA)} final score" />
-            <span>:</span>
-            <input type="number" min="0" max="20" value="${fixture.result?.scoreB ?? ""}" aria-label="${escapeHtml(fixture.teamB)} final score" />
-            <button type="submit">Update</button>
-          </div>
+          ${canEditResults ? renderEditableFixtureResult(fixture) : renderReadOnlyFixtureResult(fixture)}
           <span>${escapeHtml(fixture.venue)}</span>
         </form>
       `
@@ -487,20 +759,58 @@ function renderFixtureList() {
   fixtureList.querySelectorAll("form").forEach((form) => {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!isAdminUser()) return;
       const fixture = state.fixtures.find((item) => item.id === form.dataset.fixtureId);
-      const [scoreAInput, scoreBInput] = form.querySelectorAll("input");
+      const teamAInput = form.querySelector(".fixture-team-a");
+      const teamBInput = form.querySelector(".fixture-team-b");
+      const [scoreAInput, scoreBInput] = form.querySelectorAll(".fixture-score");
+      if (fixture && teamAInput && teamBInput) {
+        fixture.teamA = teamAInput.value.trim() || fixture.teamA;
+        fixture.teamB = teamBInput.value.trim() || fixture.teamB;
+      }
       const scoreA = Number(scoreAInput.value);
       const scoreB = Number(scoreBInput.value);
-      if (!fixture || !Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) return;
+      if (!fixture) return;
 
-      fixture.result = { scoreA, scoreB };
+      if (scoreAInput.value !== "" || scoreBInput.value !== "") {
+        if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) return;
+        fixture.result = { scoreA, scoreB };
+        syncResultToBackend(fixture);
+      }
+
       saveState();
+      syncFixtureOverrideToBackend(fixture);
       renderMatches();
       renderLeaderboard();
       renderFixtureList();
       renderResultsEditor();
     });
   });
+}
+
+function renderEditableFixtureTeams(fixture) {
+  return `
+    <div class="fixture-team-editor">
+      <input class="fixture-team-a" type="text" value="${escapeHtml(fixture.teamA)}" aria-label="Team A name" />
+      <span>vs</span>
+      <input class="fixture-team-b" type="text" value="${escapeHtml(fixture.teamB)}" aria-label="Team B name" />
+    </div>
+  `;
+}
+
+function renderEditableFixtureResult(fixture) {
+  return `
+    <div class="fixture-result">
+      <input class="fixture-score" type="number" min="0" max="20" value="${fixture.result?.scoreA ?? ""}" aria-label="${escapeHtml(fixture.teamA)} final score" />
+      <span>:</span>
+      <input class="fixture-score" type="number" min="0" max="20" value="${fixture.result?.scoreB ?? ""}" aria-label="${escapeHtml(fixture.teamB)} final score" />
+      <button type="submit">Update</button>
+    </div>
+  `;
+}
+
+function renderReadOnlyFixtureResult(fixture) {
+  return `<strong class="fixture-result-readonly">${fixture.result ? `${fixture.result.scoreA}-${fixture.result.scoreB}` : "Pending"}</strong>`;
 }
 
 function calculateScore(email) {
@@ -529,6 +839,10 @@ function calculateScore(email) {
 
 function getCurrentUser() {
   return state.currentUser ? state.users[state.currentUser] : null;
+}
+
+function isAdminUser() {
+  return ADMIN_EMAILS.includes(String(state.currentUser || "").toLowerCase());
 }
 
 function getPrediction(email, fixtureId) {
@@ -582,8 +896,43 @@ function matchOutcome(scoreA, scoreB) {
 }
 
 function formatTeam(team) {
-  const flag = FLAG_BY_TEAM[team];
+  const flag = getFlagForTeam(team);
   return flag ? `${flag} ${team}` : team;
+}
+
+function formatTeamHtml(team) {
+  const code = FLAG_CODE_BY_TEAM[team];
+  if (!code) return escapeHtml(team);
+
+  const imageCode = code.toLowerCase();
+  return `
+    <span class="team-label">
+      <img class="country-flag" src="https://flagcdn.com/${imageCode}.svg" alt="" loading="lazy" />
+      <span>${escapeHtml(team)}</span>
+    </span>
+  `;
+}
+
+function getFlagForTeam(team) {
+  const code = FLAG_CODE_BY_TEAM[team];
+  if (!code) return "";
+  if (code === "GB-ENG") return subdivisionFlag("eng");
+  if (code === "GB-SCT") return subdivisionFlag("sct");
+  return code
+    .toUpperCase()
+    .split("")
+    .map((letter) => String.fromCodePoint(0x1f1e6 + letter.charCodeAt(0) - 65))
+    .join("");
+}
+
+function subdivisionFlag(tag) {
+  const blackFlag = String.fromCodePoint(0x1f3f4);
+  const tagLetters = `gb${tag}`
+    .split("")
+    .map((letter) => String.fromCodePoint(0xe0000 + letter.charCodeAt(0)))
+    .join("");
+  const cancelTag = String.fromCodePoint(0xe007f);
+  return `${blackFlag}${tagLetters}${cancelTag}`;
 }
 
 function formatResult(fixture) {
@@ -636,9 +985,20 @@ function exportCsv() {
 }
 
 function pointsForPrediction(prediction, result) {
-  if (prediction.scoreA === result.scoreA && prediction.scoreB === result.scoreB) return 5;
-  if (isCorrectGoalDifference(prediction, result)) return 3;
-  return matchOutcome(prediction.scoreA, prediction.scoreB) === matchOutcome(result.scoreA, result.scoreB) ? 1 : 0;
+  return getPredictionOutcome(prediction, result).points;
+}
+
+function getPredictionOutcome(prediction, result) {
+  if (prediction.scoreA === result.scoreA && prediction.scoreB === result.scoreB) {
+    return { key: "exact", points: 5 };
+  }
+  if (isCorrectGoalDifference(prediction, result)) {
+    return { key: "goal-diff", points: 3 };
+  }
+  if (matchOutcome(prediction.scoreA, prediction.scoreB) === matchOutcome(result.scoreA, result.scoreB)) {
+    return { key: "result", points: 1 };
+  }
+  return { key: "wrong", points: 0 };
 }
 
 function formatDate(value) {
@@ -668,3 +1028,4 @@ function escapeHtml(value) {
 }
 
 render();
+initBackend();
