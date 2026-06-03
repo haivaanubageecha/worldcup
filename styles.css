@@ -409,6 +409,12 @@ button[type="submit"],
   background: white;
 }
 
+.fixture-row-new {
+  border-color: var(--green);
+  background: #f1fff8;
+  box-shadow: 0 0 0 3px rgba(14, 122, 95, 0.14);
+}
+
 .match-card {
   padding: 16px;
 }

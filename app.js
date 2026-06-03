@@ -123,6 +123,7 @@ const FLAG_CODE_BY_TEAM = {
 
 let state = loadState();
 let selectedLeaderboardEmail = null;
+let recentlyAddedFixtureId = null;
 const backend = {
   client: null,
   ready: false,
@@ -204,12 +205,13 @@ document.querySelector("#fixturesView").addEventListener("submit", (event) => {
   event.preventDefault();
   if (!isAdminUser()) return;
   const form = event.target;
+  if (form.id !== "fixtureForm") return;
   const inputs = Array.from(form.querySelectorAll("input"));
   const [teamA, teamB, round, date, venue] = inputs.map((input) => input.value.trim());
 
   if (!teamA || !teamB || !round || !date || !venue) return;
 
-  state.fixtures.push({
+  const fixture = {
     id: crypto.randomUUID ? crypto.randomUUID() : `m${Date.now()}`,
     teamA,
     teamB,
@@ -217,10 +219,15 @@ document.querySelector("#fixturesView").addEventListener("submit", (event) => {
     date,
     venue,
     result: null
-  });
+  };
+  state.fixtures.push(fixture);
+  recentlyAddedFixtureId = fixture.id;
   form.reset();
   saveState();
+  syncFixtureOverrideToBackend(fixture);
   render();
+  revealFixture(fixture.id);
+  renderSyncStatus("Fixture added. It is saved to the shared database and shown in date order.");
 });
 
 exportButton.addEventListener("click", exportCsv);
@@ -323,7 +330,7 @@ async function loadSharedState() {
       console.warn("Fixture override table is not ready yet.", fixtureOverridesError);
     }
 
-    applySharedRows({ players, predictions, results, fixtureOverrides });
+    applySharedRows({ players, predictions, results, fixtureOverrides: fixtureOverrides || [] });
     backend.loadedShared = true;
     saveState();
     render();
@@ -359,7 +366,10 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
 
   const resultByFixture = new Map(results.map((result) => [result.fixture_id, result]));
   const overrideByFixture = new Map(fixtureOverrides.map((override) => [override.fixture_id, override]));
-  state.fixtures = cloneOfficialFixtures().map((fixture) => {
+  const officialFixtures = cloneOfficialFixtures();
+  const officialFixtureIds = new Set(officialFixtures.map((fixture) => fixture.id));
+
+  state.fixtures = officialFixtures.map((fixture) => {
     const result = resultByFixture.get(fixture.id);
     const override = overrideByFixture.get(fixture.id);
     return {
@@ -377,6 +387,26 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
         : fixture.result
     };
   });
+
+  fixtureOverrides
+    .filter((override) => !officialFixtureIds.has(override.fixture_id))
+    .forEach((override) => {
+      const result = resultByFixture.get(override.fixture_id);
+      state.fixtures.push({
+        id: override.fixture_id,
+        teamA: override.team_a || "Team A",
+        teamB: override.team_b || "Team B",
+        round: override.round || "Custom fixture",
+        venue: override.venue || "",
+        date: override.kickoff_at || new Date().toISOString(),
+        result: result
+          ? {
+              scoreA: result.score_a,
+              scoreB: result.score_b
+            }
+          : null
+      });
+    });
 }
 
 async function syncPlayerToBackend(user) {
@@ -427,7 +457,8 @@ async function syncResultToBackend(fixture) {
 }
 
 async function syncFixtureOverrideToBackend(fixture) {
-  if (!backend.ready || !backend.loadedShared || !fixture?.id || !isAdminUser()) return;
+  if (!backend.ready || !fixture?.id || !isAdminUser()) return;
+  const kickoff = new Date(fixture.date);
 
   const { error } = await backend.client.from("fixture_overrides").upsert(
     {
@@ -436,7 +467,7 @@ async function syncFixtureOverrideToBackend(fixture) {
       team_b: fixture.teamB,
       round: fixture.round,
       venue: fixture.venue,
-      kickoff_at: new Date(fixture.date).toISOString(),
+      kickoff_at: Number.isNaN(kickoff.getTime()) ? new Date().toISOString() : kickoff.toISOString(),
       updated_at: new Date().toISOString()
     },
     { onConflict: "fixture_id" }
@@ -450,14 +481,16 @@ function cloneOfficialFixtures() {
 
 function syncOfficialFixtures(nextState) {
   const hasDemoFixtures = nextState.fixtures.some((fixture) => fixture.teamB === "Team TBD" || String(fixture.round).startsWith("Sample"));
-  const needsOfficialFixtures = nextState.fixtureSetVersion !== WORLD_CUP_FIXTURES_VERSION || hasDemoFixtures || nextState.fixtures.length !== 104;
+  const needsOfficialFixtures = nextState.fixtureSetVersion !== WORLD_CUP_FIXTURES_VERSION || hasDemoFixtures;
 
   if (needsOfficialFixtures) {
     const existingResults = new Map(nextState.fixtures.map((fixture) => [fixture.id, fixture.result]).filter(([, result]) => result));
+    const officialFixtureIds = new Set(WORLD_CUP_FIXTURES.map((fixture) => fixture.id));
+    const customFixtures = nextState.fixtures.filter((fixture) => !officialFixtureIds.has(fixture.id) && !String(fixture.round).startsWith("Sample"));
     nextState.fixtures = cloneOfficialFixtures().map((fixture) => ({
       ...fixture,
       result: existingResults.get(fixture.id) || fixture.result
-    }));
+    })).concat(customFixtures);
     nextState.fixtureSetVersion = WORLD_CUP_FIXTURES_VERSION;
   }
 }
@@ -742,7 +775,7 @@ function renderFixtureList() {
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .map(
       (fixture) => `
-        <form class="fixture-row" data-fixture-id="${fixture.id}">
+        <form class="fixture-row ${fixture.id === recentlyAddedFixtureId ? "fixture-row-new" : ""}" data-fixture-id="${fixture.id}">
           ${canEditResults ? renderEditableFixtureTeams(fixture) : `<strong>${formatTeamHtml(fixture.teamA)} vs ${formatTeamHtml(fixture.teamB)}</strong>`}
           <span>${escapeHtml(fixture.round)}</span>
           <span>${formatDate(fixture.date)}</span>
@@ -783,6 +816,20 @@ function renderFixtureList() {
       renderResultsEditor();
     });
   });
+}
+
+function revealFixture(fixtureId) {
+  window.setTimeout(() => {
+    const row = fixtureList.querySelector(`[data-fixture-id="${CSS.escape(fixtureId)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => {
+      if (recentlyAddedFixtureId === fixtureId) {
+        recentlyAddedFixtureId = null;
+        row.classList.remove("fixture-row-new");
+      }
+    }, 4500);
+  }, 50);
 }
 
 function renderEditableFixtureTeams(fixture) {
