@@ -299,21 +299,20 @@ async function loadSharedState() {
 
   backend.syncing = true;
   try {
-    const [
-      { data: players, error: playersError },
-      { data: predictions, error: predictionsError },
-      { data: results, error: resultsError },
-      { data: fixtureOverrides, error: fixtureOverridesError }
-    ] =
+    const [{ data: players, error: playersError }, { data: predictions, error: predictionsError }, { data: results, error: resultsError }] =
       await Promise.all([
         backend.client.from("players").select("*"),
         backend.client.from("predictions").select("*"),
-        backend.client.from("results").select("*"),
-        backend.client.from("fixture_overrides").select("*")
+        backend.client.from("results").select("*")
       ]);
 
-    if (playersError || predictionsError || resultsError || fixtureOverridesError) {
-      throw playersError || predictionsError || resultsError || fixtureOverridesError;
+    if (playersError || predictionsError || resultsError) {
+      throw playersError || predictionsError || resultsError;
+    }
+
+    const { data: fixtureOverrides, error: fixtureOverridesError } = await backend.client.from("fixture_overrides").select("*");
+    if (fixtureOverridesError) {
+      console.warn("Fixture override table is not ready yet.", fixtureOverridesError);
     }
 
     applySharedRows({ players, predictions, results, fixtureOverrides });
@@ -568,6 +567,7 @@ function renderMatches() {
 }
 
 function renderLeaderboard() {
+  selectedLeaderboardEmail = null;
   const rows = Object.values(state.users)
     .map((user) => ({ user, ...calculateScore(user.email) }))
     .sort(
@@ -613,67 +613,67 @@ function renderLeaderboard() {
       `
         )
         .join("")}
-      <div id="playerPredictions" class="player-predictions"></div>
     `;
 
   leaderboard.querySelectorAll(".leader-row").forEach((row) => {
     row.addEventListener("click", () => {
-      selectedLeaderboardEmail = row.dataset.email;
-      renderPlayerPredictions();
+      togglePlayerPredictions(row);
     });
     row.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        selectedLeaderboardEmail = row.dataset.email;
-        renderPlayerPredictions();
+        togglePlayerPredictions(row);
       }
     });
   });
-
-  if (!selectedLeaderboardEmail || !state.users[selectedLeaderboardEmail]) {
-    selectedLeaderboardEmail = rows[0].user.email;
-  }
-  renderPlayerPredictions();
 }
 
-function renderPlayerPredictions() {
-  const container = document.querySelector("#playerPredictions");
-  if (!container) return;
+function togglePlayerPredictions(row) {
+  const email = row.dataset.email;
+  const wasOpen = row.classList.contains("selected");
+  closePlayerPredictions();
+  if (wasOpen) return;
 
-  leaderboard.querySelectorAll(".leader-row").forEach((row) => {
-    row.classList.toggle("selected", row.dataset.email === selectedLeaderboardEmail);
-  });
+  selectedLeaderboardEmail = email;
+  row.classList.add("selected");
+  row.insertAdjacentHTML("afterend", `<div id="playerPredictions" class="player-predictions">${renderPlayerPredictionsMarkup(email)}</div>`);
+}
 
-  const user = state.users[selectedLeaderboardEmail];
+function closePlayerPredictions() {
+  selectedLeaderboardEmail = null;
+  leaderboard.querySelectorAll(".leader-row").forEach((row) => row.classList.remove("selected"));
+  document.querySelector("#playerPredictions")?.remove();
+}
+
+function renderPlayerPredictionsMarkup(email) {
+  const user = state.users[email];
   if (!user) {
-    container.innerHTML = "";
-    return;
+    return "";
   }
 
   const predictions = state.predictions[user.email] || {};
   const predictedFixtures = state.fixtures
-    .filter((fixture) => predictions[fixture.id])
+    .filter((fixture) => predictions[fixture.id] && (isFixtureLocked(fixture) || fixture.result))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   if (!predictedFixtures.length) {
-    container.innerHTML = `
+    return `
       <div class="player-predictions-head">
         ${renderAvatarMarkup(user)}
         <div>
           <strong>${escapeHtml(user.name)}</strong>
-          <span>No predictions saved yet.</span>
+          <span>No past predictions available yet.</span>
         </div>
       </div>
     `;
-    return;
   }
 
-  container.innerHTML = `
+  return `
     <div class="player-predictions-head">
       ${renderAvatarMarkup(user)}
       <div>
         <strong>${escapeHtml(user.name)}'s predictions</strong>
-        <span>Future match predictions stay hidden until kickoff.</span>
+        <span>Only predictions for matches that have started are shown.</span>
       </div>
     </div>
     <div class="prediction-detail-list">

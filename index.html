@@ -7,15 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260603-hero-clean" />
   </head>
   <body>
     <div class="shell">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark">26</div>
+          <img class="brand-mark" src="https://upload.wikimedia.org/wikipedia/en/thumb/1/17/2026_FIFA_World_Cup_emblem.svg/250px-2026_FIFA_World_Cup_emblem.svg.png" alt="2026 FIFA World Cup emblem" />
           <div>
-            <p class="eyebrow">Office League</p>
+            <p class="eyebrow">Haivaanu Bageecha</p>
             <h1>World Cup Predictor</h1>
           </div>
         </div>
@@ -59,14 +59,28 @@
           <div class="rule-row"><span>Correct result</span><strong>1 pt</strong></div>
           <div class="rule-row"><span>Miss</span><strong>0 pts</strong></div>
         </section>
+
+        <figure class="sidebar-picture">
+          <img src="https://store.fifa.com/cdn/shop/files/image_217bb8c0-803c-4772-9c18-18f1e677f831.jpg?v=1774372210&width=900" alt="Official FIFA World Cup 2026 tournament poster" />
+        </figure>
       </aside>
 
       <main>
         <header class="topbar">
-          <div>
+          <div class="hero-copy">
+            <div class="cup-lockup" aria-label="World Cup 2026 themed mark">
+              <span class="cup-trophy">26</span>
+              <span>
+                <strong>World Cup 2026</strong>
+                <em>Canada · Mexico · USA</em>
+              </span>
+            </div>
             <p class="eyebrow">FIFA World Cup 2026</p>
             <h2>Predict scores, then let the table do the talking.</h2>
           </div>
+          <figure class="hero-player">
+            <img src="assets/hero-player-white.png?v=20260603-tight" alt="Football player with ball" />
+          </figure>
           <div class="actions">
             <button class="icon-button" id="exportButton" type="button" title="Export predictions" aria-label="Export predictions">
               <span aria-hidden="true">↓</span>
@@ -153,8 +167,8 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="fixtures.js"></script>
-    <script src="supabase-config.js"></script>
-    <script src="app.js"></script>
+    <script src="fixtures.js?v=20260603b"></script>
+    <script src="supabase-config.js?v=20260603b"></script>
+    <script src="app.js?v=20260603-worldcup-theme"></script>
   </body>
 </html>
