@@ -1,5 +1,5 @@
 const STORAGE_KEY = "worldCupPredictorState";
-const APP_DATA_VERSION = "20260603-supabase-source-of-truth-v2";
+const APP_DATA_VERSION = "20260605-approved-email-enforced";
 const DISPLAY_TIME_ZONE = "Indian/Maldives";
 const DISPLAY_TIME_ZONE_LABEL = "MVT";
 const ADMIN_EMAILS = ["ahmedsimaaz09@gmail.com"];
@@ -299,6 +299,7 @@ function loadState() {
       fixtures: parsed.fixtures || cloneOfficialFixtures(),
       predictions: parsed.predictions || {}
     };
+    cleanUnapprovedLocalState(state);
     syncOfficialFixtures(state);
     return state;
   } catch {
@@ -307,6 +308,7 @@ function loadState() {
 }
 
 function saveState() {
+  cleanUnapprovedLocalState(state);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -377,16 +379,20 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
   state.predictions = {};
 
   players.forEach((player) => {
-    state.users[player.email] = {
-      email: player.email,
+    const email = normalizeEmail(player.email);
+    if (!isApprovedEmail(email)) return;
+    state.users[email] = {
+      email,
       name: player.name,
       photo: player.photo || ""
     };
   });
 
   predictions.forEach((prediction) => {
-    state.predictions[prediction.email] = state.predictions[prediction.email] || {};
-    state.predictions[prediction.email][prediction.fixture_id] = {
+    const email = normalizeEmail(prediction.email);
+    if (!isApprovedEmail(email)) return;
+    state.predictions[email] = state.predictions[email] || {};
+    state.predictions[email][prediction.fixture_id] = {
       scoreA: prediction.score_a,
       scoreB: prediction.score_b,
       savedAt: prediction.saved_at
@@ -439,11 +445,11 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
 }
 
 async function syncPlayerToBackend(user) {
-  if (!backend.ready || !backend.loadedShared || !user?.email) return;
+  if (!backend.ready || !backend.loadedShared || !user?.email || !isApprovedEmail(user.email)) return;
 
   const { error } = await backend.client.from("players").upsert(
     {
-      email: user.email,
+      email: normalizeEmail(user.email),
       name: user.name || user.email.split("@")[0],
       photo: user.photo || null,
       updated_at: new Date().toISOString()
@@ -454,7 +460,8 @@ async function syncPlayerToBackend(user) {
 }
 
 async function syncPredictionToBackend(email, fixtureId, prediction) {
-  if (!backend.ready || !backend.loadedShared || !email || !prediction) return;
+  email = normalizeEmail(email);
+  if (!backend.ready || !backend.loadedShared || !email || !prediction || !isApprovedEmail(email)) return;
 
   await syncPlayerToBackend(state.users[email] || { email, name: email.split("@")[0] });
   const { error } = await backend.client.from("predictions").upsert(
@@ -628,6 +635,7 @@ function renderMatches() {
 function renderLeaderboard() {
   selectedLeaderboardEmail = null;
   const rows = Object.values(state.users)
+    .filter((user) => isApprovedEmail(user.email))
     .map((user) => ({ user, ...calculateScore(user.email) }))
     .sort(
       (a, b) =>
@@ -915,11 +923,34 @@ function getCurrentUser() {
 }
 
 function isAdminUser() {
-  return ADMIN_EMAILS.includes(String(state.currentUser || "").toLowerCase());
+  return ADMIN_EMAILS.includes(normalizeEmail(state.currentUser));
 }
 
 function isApprovedEmail(email) {
-  return APPROVED_EMAILS.includes(String(email || "").toLowerCase());
+  return APPROVED_EMAILS.includes(normalizeEmail(email));
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function cleanUnapprovedLocalState(nextState) {
+  nextState.currentUser = normalizeEmail(nextState.currentUser);
+  if (nextState.currentUser && !isApprovedEmail(nextState.currentUser)) {
+    nextState.currentUser = null;
+  }
+
+  Object.keys(nextState.users || {}).forEach((email) => {
+    if (!isApprovedEmail(email)) {
+      delete nextState.users[email];
+    }
+  });
+
+  Object.keys(nextState.predictions || {}).forEach((email) => {
+    if (!isApprovedEmail(email)) {
+      delete nextState.predictions[email];
+    }
+  });
 }
 
 function getPrediction(email, fixtureId) {
@@ -1035,7 +1066,7 @@ function showView(viewName) {
 
 function exportCsv() {
   const lines = [["name", "email", "round", "match", "prediction", "result", "points"]];
-  Object.values(state.users).forEach((user) => {
+  Object.values(state.users).filter((user) => isApprovedEmail(user.email)).forEach((user) => {
     state.fixtures.forEach((fixture) => {
       const prediction = getPrediction(user.email, fixture.id);
       const points = fixture.result && prediction ? pointsForPrediction(prediction, fixture.result) : "";
