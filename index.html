@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260605-favorite-team" />
+    <link rel="stylesheet" href="styles.css?v=20260605-correct-column" />
   </head>
   <body>
     <div class="shell">
@@ -60,10 +60,22 @@
 
         <section class="panel rules">
           <p class="panel-title">Scoring</p>
-          <div class="rule-row"><span>Exact score</span><strong>5 pts</strong></div>
-          <div class="rule-row"><span>Goal difference</span><strong>3 pts</strong></div>
-          <div class="rule-row"><span>Correct result</span><strong>1 pt</strong></div>
-          <div class="rule-row"><span>Miss</span><strong>0 pts</strong></div>
+          <div class="rule-row">
+            <span><b>Exact score</b><em>Pick 2-1, match ends 2-1.</em></span>
+            <strong>5 pts</strong>
+          </div>
+          <div class="rule-row">
+            <span><b>Goal difference</b><em>Pick 2-0, match ends 3-1.</em></span>
+            <strong>3 pts</strong>
+          </div>
+          <div class="rule-row">
+            <span><b>Correct result</b><em>Pick the right winner or draw.</em></span>
+            <strong>1 pt</strong>
+          </div>
+          <div class="rule-row">
+            <span><b>Miss</b><em>Wrong winner, or picked win but it draws.</em></span>
+            <strong>0 pts</strong>
+          </div>
         </section>
 
         <figure class="sidebar-picture">
@@ -175,6 +187,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="fixtures.js?v=20260603b"></script>
     <script src="supabase-config.js?v=20260603b"></script>
-    <script src="app.js?v=20260605-favorite-team-reuse"></script>
+    <script src="app.js?v=20260605-correct-column"></script>
   </body>
 </html>

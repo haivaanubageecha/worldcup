@@ -676,15 +676,16 @@ function renderLeaderboard() {
       <div class="leader-header">
         <span></span>
         <span>Player</span>
-        <span>Points</span>
-        <span>Exact</span>
-        <span>Goal diff</span>
-        <span>Predicted</span>
+        <span class="stat-help" tabindex="0" data-tip="Total points earned from completed matches.">Points</span>
+        <span class="stat-help" tabindex="0" data-tip="Number of exact final scores predicted correctly.">Exact</span>
+        <span class="stat-help" tabindex="0" data-tip="Correct winner and exact goal difference, but not exact score.">Goal diff</span>
+        <span class="stat-help" tabindex="0" data-tip="Correct winner or draw, but not exact score or goal difference.">Correct</span>
+        <span class="stat-help" tabindex="0" data-tip="Number of matches where this player saved a prediction.">Predicted</span>
       </div>
       ${rows
         .map(
           (row, index) => `
-        <div class="leader-row" role="button" tabindex="0" data-email="${escapeHtml(row.user.email)}">
+        <div class="leader-row leader-rank-${index + 1}" role="button" tabindex="0" data-email="${escapeHtml(row.user.email)}">
           <div class="rank">${index + 1}</div>
           <div class="leader-name">
             ${renderAvatarMarkup(row.user)}
@@ -699,6 +700,7 @@ function renderLeaderboard() {
           <div class="leader-stat"><strong>${row.points}</strong></div>
           <div class="leader-stat"><strong>${row.exact}</strong></div>
           <div class="leader-stat"><strong>${row.goalDiff}</strong></div>
+          <div class="leader-stat"><strong>${row.correct}</strong></div>
           <div class="leader-stat"><strong>${row.predicted}</strong></div>
         </div>
       `

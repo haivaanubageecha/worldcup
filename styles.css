@@ -231,6 +231,7 @@ button[type="submit"],
 .rule-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
   padding: 10px 0;
   border-top: 1px solid var(--line);
@@ -243,6 +244,24 @@ button[type="submit"],
 
 .rule-row strong {
   color: var(--ink);
+  white-space: nowrap;
+}
+
+.rule-row b,
+.rule-row em {
+  display: block;
+}
+
+.rule-row b {
+  margin-bottom: 3px;
+  color: var(--muted);
+}
+
+.rule-row em {
+  color: #74849a;
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.35;
 }
 
 .sidebar-picture {
@@ -519,7 +538,7 @@ button[type="submit"],
 .leader-header,
 .leader-row {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) repeat(4, 88px);
+  grid-template-columns: 48px minmax(0, 1fr) repeat(5, minmax(78px, 88px));
   gap: 12px;
   align-items: center;
 }
@@ -534,6 +553,43 @@ button[type="submit"],
 
 .leader-header span:nth-child(n + 3) {
   text-align: right;
+}
+
+.stat-help {
+  position: relative;
+  cursor: help;
+}
+
+.stat-help::after {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  width: max-content;
+  max-width: 210px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: white;
+  background: var(--navy);
+  box-shadow: 0 10px 24px rgba(23, 32, 42, 0.18);
+  content: attr(data-tip);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  text-transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.stat-help:hover::after,
+.stat-help:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .leader-row {
@@ -563,6 +619,36 @@ button[type="submit"],
   color: white;
   background: var(--navy);
   font-weight: 800;
+}
+
+.leader-rank-1 {
+  border-color: #d7a93f;
+  background: #fff9e8;
+}
+
+.leader-rank-1 .rank {
+  color: #3f2a00;
+  background: linear-gradient(145deg, #ffe58a, #d7a93f);
+}
+
+.leader-rank-2 {
+  border-color: #aeb8c4;
+  background: #f7f9fb;
+}
+
+.leader-rank-2 .rank {
+  color: #253140;
+  background: linear-gradient(145deg, #eef2f7, #aeb8c4);
+}
+
+.leader-rank-3 {
+  border-color: #b97842;
+  background: #fff3ea;
+}
+
+.leader-rank-3 .rank {
+  color: #3e1f07;
+  background: linear-gradient(145deg, #e4a673, #b97842);
 }
 
 .leader-name strong,
