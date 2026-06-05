@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260605-correct-column" />
+    <link rel="stylesheet" href="styles.css?v=20260605-rankings-compact" />
   </head>
   <body>
     <div class="shell">
@@ -112,6 +112,7 @@
         <nav class="tabs" aria-label="Views">
           <button class="tab active" data-view="predictions" type="button">Predictions</button>
           <button class="tab" data-view="leaderboard" type="button">Leaderboard</button>
+          <button class="tab" data-view="rankings" type="button">Rankings</button>
           <button class="tab" data-view="fixtures" type="button">Results</button>
         </nav>
 
@@ -141,6 +142,17 @@
           </div>
           <div id="leaderboard" class="leaderboard"></div>
           <div id="resultsEditor" class="results-editor hidden"></div>
+        </section>
+
+        <section id="rankingsView" class="view">
+          <div class="rankings-head">
+            <div>
+              <p class="eyebrow">FIFA guide</p>
+              <h3>World rankings</h3>
+            </div>
+            <p>Lower rank number means a stronger current FIFA ranking.</p>
+          </div>
+          <div id="rankingsList" class="rankings-list"></div>
         </section>
 
         <section id="fixturesView" class="view">
@@ -187,6 +199,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="fixtures.js?v=20260603b"></script>
     <script src="supabase-config.js?v=20260603b"></script>
-    <script src="app.js?v=20260605-correct-column"></script>
+    <script src="app.js?v=20260605-rankings-tab"></script>
   </body>
 </html>

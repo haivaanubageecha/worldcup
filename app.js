@@ -143,6 +143,66 @@ const FLAG_CODE_BY_TEAM = {
   Uzbekistan: "UZ"
 };
 
+const FIFA_RANK_BY_TEAM = {
+  Algeria: 28,
+  Argentina: 3,
+  Australia: 27,
+  Austria: 24,
+  Belgium: 9,
+  "Bosnia and Herzegovina": 65,
+  Brazil: 6,
+  Canada: 30,
+  "Cabo Verde": 69,
+  "Cape Verde": 69,
+  Colombia: 13,
+  "Cote d'Ivoire": 34,
+  "Côte d'Ivoire": 34,
+  Croatia: 11,
+  Curacao: 82,
+  "Curaçao": 82,
+  Czechia: 41,
+  "Congo DR": 46,
+  "DR Congo": 46,
+  Ecuador: 23,
+  Egypt: 29,
+  England: 4,
+  France: 1,
+  Germany: 10,
+  Ghana: 74,
+  Haiti: 83,
+  Iran: 21,
+  Iraq: 57,
+  "Ivory Coast": 34,
+  Japan: 18,
+  Jordan: 63,
+  Mexico: 15,
+  Morocco: 8,
+  Netherlands: 7,
+  "New Zealand": 85,
+  Norway: 31,
+  Panama: 33,
+  Paraguay: 40,
+  Portugal: 5,
+  Qatar: 55,
+  "Saudi Arabia": 61,
+  Scotland: 43,
+  Senegal: 14,
+  "South Africa": 60,
+  "Korea Republic": 25,
+  "South Korea": 25,
+  Spain: 2,
+  Sweden: 38,
+  Switzerland: 19,
+  Tunisia: 44,
+  Turkiye: 22,
+  Turkey: 22,
+  Türkiye: 22,
+  Uruguay: 17,
+  USA: 16,
+  "United States": 16,
+  Uzbekistan: 50
+};
+
 let state = loadState();
 let selectedLeaderboardEmail = null;
 let recentlyAddedFixtureId = null;
@@ -166,6 +226,7 @@ const matchesList = document.querySelector("#matchesList");
 const matchSearch = document.querySelector("#matchSearch");
 const roundFilter = document.querySelector("#roundFilter");
 const leaderboard = document.querySelector("#leaderboard");
+const rankingsList = document.querySelector("#rankingsList");
 const resultsEditor = document.querySelector("#resultsEditor");
 const addResultButton = document.querySelector("#addResultButton");
 const fixtureList = document.querySelector("#fixtureList");
@@ -558,6 +619,7 @@ function render() {
   renderRoundFilter();
   renderMatches();
   renderLeaderboard();
+  renderRankings();
   renderFixtureList();
   renderResultsEditor();
 }
@@ -719,6 +781,37 @@ function renderLeaderboard() {
       }
     });
   });
+}
+
+function renderRankings() {
+  if (!rankingsList) return;
+
+  const rows = getWorldCupTeams()
+    .map((team) => ({
+      team,
+      group: getTeamGroup(team),
+      rank: FIFA_RANK_BY_TEAM[team] || null
+    }))
+    .sort((a, b) => (a.rank || 999) - (b.rank || 999) || a.team.localeCompare(b.team));
+
+  rankingsList.innerHTML = `
+    <div class="rankings-row rankings-row-head">
+      <span>FIFA</span>
+      <span>Team</span>
+      <span>Group</span>
+    </div>
+    ${rows
+      .map(
+        (row) => `
+      <div class="rankings-row">
+        <strong>#${row.rank || "-"}</strong>
+        <span>${formatTeamHtml(row.team)}</span>
+        <span>${escapeHtml(row.group || "-")}</span>
+      </div>
+    `
+      )
+      .join("")}
+  `;
 }
 
 function togglePlayerPredictions(row) {
@@ -1000,6 +1093,11 @@ function isWorldCupTeam(team) {
 
 function isPlaceholderTeam(team) {
   return /^(team tbd|group .*(winner|runner-up|3rd place)|match \d+ (winner|loser))$/i.test(String(team || "").trim());
+}
+
+function getTeamGroup(team) {
+  const fixture = WORLD_CUP_FIXTURES.find((item) => item.round.startsWith("Group ") && (item.teamA === team || item.teamB === team));
+  return fixture?.round || "";
 }
 
 function getPrediction(email, fixtureId) {

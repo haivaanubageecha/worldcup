@@ -419,6 +419,11 @@ button[type="submit"],
   gap: 12px;
 }
 
+.rankings-list {
+  display: grid;
+  gap: 6px;
+}
+
 .match-card,
 .leader-row,
 .fixture-row,
@@ -608,6 +613,52 @@ button[type="submit"],
   background: #f8fffc;
   box-shadow: 0 10px 28px rgba(14, 122, 95, 0.1);
   outline: none;
+}
+
+.rankings-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.rankings-head p:last-child {
+  max-width: 340px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.rankings-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 78px;
+  gap: 10px;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  font-size: 0.9rem;
+}
+
+.rankings-row-head {
+  min-height: 0;
+  padding: 0 10px 1px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rankings-row strong {
+  color: var(--green);
 }
 
 .rank {
@@ -870,9 +921,15 @@ button[type="submit"],
   }
 
   .topbar,
-  .leaderboard-head {
+  .leaderboard-head,
+  .rankings-head {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .rankings-head p:last-child {
+    max-width: none;
+    text-align: left;
   }
 
   .hero-player {
@@ -885,6 +942,7 @@ button[type="submit"],
   .match-body,
   .leader-header,
   .leader-row,
+  .rankings-row,
   .prediction-detail-row,
   .fixture-row,
   .result-row {
