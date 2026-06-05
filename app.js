@@ -3,6 +3,28 @@ const APP_DATA_VERSION = "20260603-supabase-source-of-truth-v2";
 const DISPLAY_TIME_ZONE = "Indian/Maldives";
 const DISPLAY_TIME_ZONE_LABEL = "MVT";
 const ADMIN_EMAILS = ["ahmedsimaaz09@gmail.com"];
+const APPROVED_EMAILS = [
+  "aasifappi@gmail.com",
+  "ainth91@gmail.com",
+  "ameennu93@gmail.com",
+  "assey92@gmail.com",
+  "ahmedbych@gmail.com",
+  "fezuaminath@gmail.com",
+  "gaf963@gmail.com",
+  "ilhama.alee@gmail.com",
+  "inaa1703@gmail.com",
+  "mohdkt2@gmail.com",
+  "aminathlamhaa19@gmail.com",
+  "luyoonaahassan@gmail.com",
+  "samrath6340@gmail.com",
+  "siyaanaarahman@gmail.com",
+  "aishthai6@gmail.com",
+  "zeeshanabdulwahhab@gmail.com",
+  "yumnahussein98@gmail.com",
+  "ahmedsimaaz09@gmail.com",
+  "aaishaa22990@gmail.com",
+  "aishathmuasha@gmail.com"
+];
 const FLAG_BY_TEAM = {
   Algeria: "🇩🇿",
   Argentina: "🇦🇷",
@@ -161,6 +183,13 @@ loginForm.addEventListener("submit", (event) => {
   const name = String(form.get("name") || "").trim() || email.split("@")[0] || "Player";
 
   if (!isValidEmail(email)) {
+    renderSyncStatus("Please enter a valid email address.");
+    loginForm.querySelector("input[type='email']").focus();
+    return;
+  }
+
+  if (!isApprovedEmail(email)) {
+    renderSyncStatus("This email is not approved for this league. Please check the spelling or contact the admin.");
     loginForm.querySelector("input[type='email']").focus();
     return;
   }
@@ -887,6 +916,10 @@ function getCurrentUser() {
 
 function isAdminUser() {
   return ADMIN_EMAILS.includes(String(state.currentUser || "").toLowerCase());
+}
+
+function isApprovedEmail(email) {
+  return APPROVED_EMAILS.includes(String(email || "").toLowerCase());
 }
 
 function getPrediction(email, fixtureId) {
