@@ -184,7 +184,9 @@ loginForm.addEventListener("submit", (event) => {
   const form = new FormData(loginForm);
   const email = String(form.get("email") || loginForm.querySelector("input[type='email']").value).trim().toLowerCase();
   const name = String(form.get("name") || "").trim() || email.split("@")[0] || "Player";
-  const favoriteTeam = String(form.get("favoriteTeam") || "").trim();
+  const selectedFavoriteTeam = String(form.get("favoriteTeam") || "").trim();
+  const savedFavoriteTeam = state.users[email]?.favoriteTeam || "";
+  const favoriteTeam = selectedFavoriteTeam || savedFavoriteTeam;
 
   if (!isValidEmail(email)) {
     renderSyncStatus("Please enter a valid email address.");
