@@ -440,7 +440,7 @@ button[type="submit"],
 }
 
 .match-card {
-  padding: 10px 16px;
+  padding: 12px 16px;
 }
 
 .match-card.locked {
@@ -458,7 +458,6 @@ button[type="submit"],
   cursor: not-allowed;
 }
 
-.match-meta,
 .venue,
 .match-result {
   display: flex;
@@ -485,12 +484,12 @@ button[type="submit"],
   color: var(--muted);
 }
 
-.match-body {
+.score-form {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
-  gap: 10px;
+  grid-template-columns: 70px minmax(116px, 1fr) auto minmax(144px, 1fr) 86px minmax(140px, 0.9fr) minmax(150px, 1fr);
+  gap: 12px;
   align-items: center;
-  margin: 8px 0 4px;
+  width: 100%;
 }
 
 .team {
@@ -517,15 +516,14 @@ button[type="submit"],
 }
 
 .team-b {
-  text-align: right;
+  text-align: left;
 }
 
-.score-form {
+.score-entry {
   display: grid;
-  grid-template-columns: 44px auto 44px 86px;
+  grid-template-columns: 44px auto 44px;
   gap: 5px;
   align-items: center;
-  transform: translateY(4px);
 }
 
 .score {
@@ -544,7 +542,10 @@ button[type="submit"],
 }
 
 .venue {
+  display: block;
   margin: 0;
+  min-width: 0;
+  line-height: 1.25;
 }
 
 .match-result {
@@ -994,6 +995,11 @@ button[type="submit"],
   .fixture-form {
     grid-template-columns: repeat(2, minmax(130px, 1fr));
   }
+
+  .score-form {
+    grid-template-columns: 60px minmax(100px, 1fr) auto minmax(120px, 1fr) 86px minmax(110px, 0.85fr) minmax(130px, 0.9fr);
+    gap: 10px;
+  }
 }
 
 @media (max-width: 680px) {
@@ -1150,40 +1156,40 @@ button[type="submit"],
     padding: 10px 12px;
   }
 
-  .match-meta {
-    gap: 8px;
-    font-size: 0.72rem;
-  }
-
-  .match-body {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px 10px;
-    margin: 8px 0 3px;
-  }
-
   .team {
     font-size: 1rem;
   }
 
-  .team-a {
+  .score-form {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+
+  .round {
     grid-column: 1;
     grid-row: 1;
   }
 
-  .team-b {
-    grid-column: 2;
+  .date {
+    grid-column: 2 / -1;
     grid-row: 1;
+    justify-self: end;
+  }
+
+  .team-a {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .team-b {
+    grid-column: 3;
+    grid-row: 2;
     text-align: right;
   }
 
-  .score-form {
-    grid-column: 1 / -1;
+  .score-entry {
+    grid-column: 2;
     grid-row: 2;
-    grid-template-columns: 44px auto 44px 86px;
-    max-width: none;
-    justify-self: center;
-    width: auto;
-    transform: none;
   }
 
   .score {
@@ -1195,6 +1201,8 @@ button[type="submit"],
   }
 
   .venue {
+    grid-column: 1 / -1;
+    grid-row: 4;
     margin-top: 3px;
     font-size: 0.74rem;
   }
@@ -1207,7 +1215,9 @@ button[type="submit"],
   }
 
   .score-form button {
-    grid-column: 4;
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: center;
   }
 
   .fixture-form {

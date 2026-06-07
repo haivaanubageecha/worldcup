@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260607-fixed-score-boxes" />
+    <link rel="stylesheet" href="styles.css?v=20260607-row-predictions-layout" />
   </head>
   <body>
     <div class="shell">
@@ -177,22 +177,20 @@
 
     <template id="matchTemplate">
       <article class="match-card">
-        <div class="match-meta">
+        <form class="score-form">
           <span class="round"></span>
-          <span class="date"></span>
-        </div>
-        <div class="match-body">
           <div class="team team-a"></div>
-          <form class="score-form">
+          <div class="score-entry">
             <input class="score score-a" type="number" inputmode="numeric" min="0" max="20" aria-label="Team A score" />
             <span>:</span>
             <input class="score score-b" type="number" inputmode="numeric" min="0" max="20" aria-label="Team B score" />
-            <button type="submit">Save</button>
             <p class="match-result"></p>
-          </form>
+          </div>
           <div class="team team-b"></div>
-        </div>
-        <p class="venue"></p>
+          <button type="submit">Save</button>
+          <p class="venue"></p>
+          <span class="date"></span>
+        </form>
       </article>
     </template>
 
