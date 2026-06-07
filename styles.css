@@ -486,10 +486,17 @@ button[type="submit"],
 
 .score-form {
   display: grid;
-  grid-template-columns: 70px minmax(116px, 1fr) auto minmax(144px, 1fr) 86px minmax(140px, 0.9fr) minmax(150px, 1fr);
+  grid-template-columns: 70px minmax(96px, 1fr) auto minmax(126px, 1fr) 86px minmax(140px, 0.9fr) minmax(150px, 1fr);
   gap: 12px;
-  align-items: center;
+  align-items: start;
   width: 100%;
+}
+
+.round,
+.team,
+.venue,
+.date {
+  margin-top: 7px;
 }
 
 .team {
@@ -521,9 +528,16 @@ button[type="submit"],
 
 .score-entry {
   display: grid;
-  grid-template-columns: 44px auto 44px;
-  gap: 5px;
+  grid-template-columns: 26px 44px auto 44px 26px;
+  grid-template-rows: 34px auto;
+  gap: 6px;
   align-items: center;
+}
+
+.score-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .score {
@@ -548,8 +562,13 @@ button[type="submit"],
   line-height: 1.25;
 }
 
+.score-form .venue {
+  margin-top: 7px;
+}
+
 .match-result {
   grid-column: 1 / -1;
+  grid-row: 2;
   justify-content: center;
   margin: 0;
   color: var(--green);
@@ -997,7 +1016,7 @@ button[type="submit"],
   }
 
   .score-form {
-    grid-template-columns: 60px minmax(100px, 1fr) auto minmax(120px, 1fr) 86px minmax(110px, 0.85fr) minmax(130px, 0.9fr);
+    grid-template-columns: 60px minmax(90px, 1fr) auto minmax(112px, 1fr) 86px minmax(110px, 0.85fr) minmax(130px, 0.9fr);
     gap: 10px;
   }
 }
@@ -1192,6 +1211,11 @@ button[type="submit"],
     grid-row: 2;
   }
 
+  .score-entry {
+    grid-template-columns: 24px 44px auto 44px 24px;
+    gap: 5px;
+  }
+
   .score {
     min-height: 34px;
   }
@@ -1205,6 +1229,10 @@ button[type="submit"],
     grid-row: 4;
     margin-top: 3px;
     font-size: 0.74rem;
+  }
+
+  .score-form .venue {
+    margin-top: 3px;
   }
 
   .leader-stat,

@@ -688,8 +688,10 @@ function renderMatches() {
     card.classList.toggle("locked", locked);
     card.querySelector(".round").textContent = fixture.round;
     card.querySelector(".date").textContent = formatDate(fixture.date);
-    card.querySelector(".team-a").innerHTML = formatTeamHtml(fixture.teamA);
-    card.querySelector(".team-b").innerHTML = formatTeamHtml(fixture.teamB);
+    card.querySelector(".team-a").textContent = fixture.teamA;
+    card.querySelector(".team-b").textContent = fixture.teamB;
+    card.querySelector(".score-flag-a").innerHTML = formatFlagHtml(fixture.teamA);
+    card.querySelector(".score-flag-b").innerHTML = formatFlagHtml(fixture.teamB);
     card.querySelector(".venue").textContent = fixture.venue;
     card.querySelector(".match-result").textContent = formatResult(fixture);
     card.querySelector(".match-result").classList.toggle("empty-result", !fixture.result);
@@ -1218,13 +1220,18 @@ function formatTeamHtml(team) {
   const code = FLAG_CODE_BY_TEAM[team];
   if (!code) return escapeHtml(team);
 
-  const imageCode = code.toLowerCase();
   return `
     <span class="team-label">
-      <img class="country-flag" src="https://flagcdn.com/${imageCode}.svg" alt="" loading="lazy" />
+      ${formatFlagHtml(team)}
       <span>${escapeHtml(team)}</span>
     </span>
   `;
+}
+
+function formatFlagHtml(team) {
+  const code = FLAG_CODE_BY_TEAM[team];
+  if (!code) return "";
+  return `<img class="country-flag" src="https://flagcdn.com/${code.toLowerCase()}.svg" alt="" loading="lazy" />`;
 }
 
 function getFlagForTeam(team) {
