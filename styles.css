@@ -522,7 +522,7 @@ button[type="submit"],
 
 .score-form {
   display: grid;
-  grid-template-columns: 44px auto 44px 72px;
+  grid-template-columns: 44px auto 44px 86px;
   gap: 5px;
   align-items: center;
   transform: translateY(4px);
@@ -538,8 +538,8 @@ button[type="submit"],
 
 .score-form button {
   min-height: 34px;
-  min-width: 72px;
-  padding: 0 10px;
+  min-width: 86px;
+  padding: 0 8px;
   white-space: nowrap;
 }
 
@@ -1179,7 +1179,10 @@ button[type="submit"],
   .score-form {
     grid-column: 1 / -1;
     grid-row: 2;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(84px, 0.55fr);
+    grid-template-columns: 44px auto 44px 86px;
+    max-width: none;
+    justify-self: center;
+    width: auto;
     transform: none;
   }
 
