@@ -366,6 +366,36 @@ button[type="submit"],
   font-weight: 800;
 }
 
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 12px;
+}
+
+.topbar .hero-copy,
+.topbar .hero-player {
+  display: none;
+}
+
+.topbar .actions {
+  margin-left: auto;
+}
+
+.cover-photo {
+  margin: 0 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.cover-photo img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
 .tabs {
   display: flex;
   gap: 8px;
