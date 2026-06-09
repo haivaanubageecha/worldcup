@@ -283,6 +283,13 @@ async function handleLogin(event) {
     return;
   }
 
+  if (authAction === "signUp" && state.users[email]?.favoriteTeam) {
+    renderSyncStatus("This account already has a favorite team saved. Please sign in instead.");
+    setAuthMode("signIn");
+    loginForm.querySelector("input[type='password']").focus();
+    return;
+  }
+
   if (backend.ready) {
     if (password.length < 6) {
       renderSyncStatus("Please enter a password with at least 6 characters.");
@@ -348,10 +355,11 @@ function setAuthenticatedUser(email, name, favoriteTeam = "") {
   const existingName = state.users[email]?.name;
   const existingFavoriteTeam = state.users[email]?.favoriteTeam;
   const displayName = name || existingName || email.split("@")[0] || "Player";
+  const savedFavoriteTeam = existingFavoriteTeam || (isWorldCupTeam(favoriteTeam) ? favoriteTeam : "");
   state.currentUser = email;
   state.users[email] = state.users[email] || { email, name: displayName };
   state.users[email].name = displayName;
-  state.users[email].favoriteTeam = isWorldCupTeam(favoriteTeam) ? favoriteTeam : existingFavoriteTeam || "";
+  state.users[email].favoriteTeam = savedFavoriteTeam;
   saveState();
   syncPlayerToBackend(state.users[email]);
 }
