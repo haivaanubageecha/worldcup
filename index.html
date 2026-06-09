@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260608-clean-login-admin-export" />
+    <link rel="stylesheet" href="styles.css?v=20260609-password-auth" />
   </head>
   <body>
     <div class="shell">
@@ -31,7 +31,14 @@
               <span>Display name</span>
               <input id="nameInput" name="name" type="text" autocomplete="name" placeholder="Sam" maxlength="32" />
             </label>
-            <button type="submit">Enter league</button>
+            <label>
+              <span>Password</span>
+              <input id="passwordInput" name="password" type="password" autocomplete="current-password" placeholder="At least 6 characters" minlength="6" required />
+            </label>
+            <div class="auth-buttons">
+              <button type="submit" name="authAction" value="signIn">Sign in</button>
+              <button class="secondary-light" type="submit" name="authAction" value="signUp">Create account</button>
+            </div>
           </form>
           <p class="hint" id="syncStatus">Local mode: predictions are stored in this browser until backend config is added.</p>
         </section>
@@ -197,6 +204,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="fixtures.js?v=20260603b"></script>
     <script src="supabase-config.js?v=20260603b"></script>
-    <script src="app.js?v=20260608-clean-login-admin-export"></script>
+    <script src="app.js?v=20260609-approved-rynaa"></script>
   </body>
 </html>

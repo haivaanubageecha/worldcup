@@ -177,6 +177,23 @@ button[type="submit"],
   background: var(--green);
 }
 
+.auth-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.secondary-light {
+  color: var(--green);
+  border: 1px solid rgba(14, 122, 95, 0.28);
+  background: #eefbf4;
+}
+
+button.secondary-light[type="submit"] {
+  color: var(--green);
+  background: #eefbf4;
+}
+
 .ghost {
   width: 100%;
   color: var(--navy);

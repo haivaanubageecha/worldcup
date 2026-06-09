@@ -23,7 +23,8 @@ const APPROVED_EMAILS = [
   "yumnahussein98@gmail.com",
   "ahmedsimaaz09@gmail.com",
   "aaishaa22990@gmail.com",
-  "aishathmuasha@gmail.com"
+  "aishathmuasha@gmail.com",
+  "rynaa03ibrahim@gmail.com"
 ];
 const FLAG_BY_TEAM = {
   Algeria: "🇩🇿",
@@ -239,9 +240,18 @@ document.querySelectorAll(".tab").forEach((tab) => {
 
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  handleLogin(event).catch((error) => {
+    console.error(error);
+    renderSyncStatus("Sign in failed. Please check your email and password.");
+  });
+});
+
+async function handleLogin(event) {
   const form = new FormData(loginForm);
   const email = String(form.get("email") || loginForm.querySelector("input[type='email']").value).trim().toLowerCase();
   const name = String(form.get("name") || "").trim() || email.split("@")[0] || "Player";
+  const password = String(form.get("password") || "");
+  const authAction = event.submitter?.value || "signIn";
 
   if (!isValidEmail(email)) {
     renderSyncStatus("Please enter a valid email address.");
@@ -255,19 +265,62 @@ loginForm.addEventListener("submit", (event) => {
     return;
   }
 
+  if (backend.ready) {
+    if (password.length < 6) {
+      renderSyncStatus("Please enter a password with at least 6 characters.");
+      loginForm.querySelector("input[type='password']").focus();
+      return;
+    }
+
+    const authResult =
+      authAction === "signUp"
+        ? await backend.client.auth.signUp({ email, password, options: { data: { name } } })
+        : await backend.client.auth.signInWithPassword({ email, password });
+
+    if (authResult.error) {
+      renderSyncStatus(authResult.error.message || "Sign in failed. Please check your email and password.");
+      return;
+    }
+
+    if (authAction === "signUp" && !authResult.data.session) {
+      renderSyncStatus("Account created. Check your email to confirm it, then sign in.");
+      return;
+    }
+
+    setAuthenticatedUser(email, name);
+    renderSyncStatus("Signed in securely.");
+  } else {
+    setAuthenticatedUser(email, name);
+  }
+
+  loginForm.reset();
+  render();
+}
+
+function setAuthenticatedUser(email, name) {
   state.currentUser = email;
   state.users[email] = state.users[email] || { email, name };
   state.users[email].name = name;
   saveState();
   syncPlayerToBackend(state.users[email]);
-  loginForm.reset();
-  render();
-});
+}
 
-switchUserButton.addEventListener("click", () => {
+async function signOut() {
+  if (backend.ready) {
+    await backend.client.auth.signOut();
+  }
   state.currentUser = null;
   saveState();
   render();
+}
+
+switchUserButton.addEventListener("click", () => {
+  signOut().catch((error) => {
+    console.error(error);
+    state.currentUser = null;
+    saveState();
+    render();
+  });
 });
 
 photoInput.addEventListener("change", async () => {
@@ -394,6 +447,27 @@ async function initBackend() {
   backend.client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
   backend.ready = true;
   renderSyncStatus("Connecting to shared database...");
+  await restoreAuthSession();
+
+  backend.client.auth.onAuthStateChange((_event, session) => {
+    const email = normalizeEmail(session?.user?.email);
+    if (!email) {
+      if (backend.ready) {
+        state.currentUser = null;
+        saveState();
+        render();
+      }
+      return;
+    }
+    if (!isApprovedEmail(email)) {
+      backend.client.auth.signOut();
+      renderSyncStatus("This email is not approved for this league.");
+      return;
+    }
+    const name = session.user.user_metadata?.name || state.users[email]?.name || email.split("@")[0];
+    setAuthenticatedUser(email, name);
+    render();
+  });
 
   loadSharedState().catch((error) => {
     console.error(error);
@@ -401,6 +475,36 @@ async function initBackend() {
   });
 
   window.setInterval(loadSharedState, 30000);
+}
+
+async function restoreAuthSession() {
+  if (!backend.ready) return;
+  const { data, error } = await backend.client.auth.getSession();
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const email = normalizeEmail(data.session?.user?.email);
+  if (!email) {
+    state.currentUser = null;
+    saveState();
+    render();
+    return;
+  }
+
+  if (!isApprovedEmail(email)) {
+    await backend.client.auth.signOut();
+    state.currentUser = null;
+    saveState();
+    renderSyncStatus("This email is not approved for this league.");
+    render();
+    return;
+  }
+
+  const name = data.session.user.user_metadata?.name || state.users[email]?.name || email.split("@")[0];
+  setAuthenticatedUser(email, name);
+  render();
 }
 
 async function loadSharedState() {
@@ -452,6 +556,11 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
       favoriteTeam: player.favorite_team || player.favoriteTeam || previousUsers[email]?.favoriteTeam || ""
     };
   });
+
+  const currentEmail = normalizeEmail(state.currentUser);
+  if (currentEmail && isApprovedEmail(currentEmail) && previousUsers[currentEmail] && !state.users[currentEmail]) {
+    state.users[currentEmail] = previousUsers[currentEmail];
+  }
 
   predictions.forEach((prediction) => {
     const email = normalizeEmail(prediction.email);
