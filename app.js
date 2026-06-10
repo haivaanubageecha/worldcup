@@ -2,7 +2,7 @@ const STORAGE_KEY = "worldCupPredictorState";
 const APP_DATA_VERSION = "20260605-approved-email-enforced";
 const DISPLAY_TIME_ZONE = "Indian/Maldives";
 const DISPLAY_TIME_ZONE_LABEL = "MVT";
-const PREDICTION_OPEN_HOURS = 48;
+const PREDICTION_OPEN_HOURS = 24;
 const ADMIN_EMAILS = ["ahmedsimaaz09@gmail.com", "ahmedbych@gmail.com"];
 const APPROVED_EMAILS = [
   "aasifappi@gmail.com",
