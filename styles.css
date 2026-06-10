@@ -1145,6 +1145,10 @@ button.secondary-light[type="submit"] {
     padding: 16px;
   }
 
+  .sidebar-picture {
+    display: none;
+  }
+
   .topbar,
   .leaderboard-head,
   .rankings-head {
