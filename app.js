@@ -207,6 +207,7 @@ const FIFA_RANK_BY_TEAM = {
 let state = loadState();
 let selectedLeaderboardEmail = null;
 let leaderboardEmailByIndex = [];
+let leaderboardMovements = {};
 let recentlyAddedFixtureId = null;
 const backend = {
   client: null,
@@ -488,7 +489,6 @@ function createInitialState() {
     users: {},
     fixtures: cloneOfficialFixtures(),
     predictions: {},
-    leaderboardSnapshot: { signature: "", ranks: {}, movements: {} },
     fixtureSetVersion: WORLD_CUP_FIXTURES_VERSION
   };
 }
@@ -507,8 +507,7 @@ function loadState() {
       ...parsed,
       users: parsed.users || {},
       fixtures: parsed.fixtures || cloneOfficialFixtures(),
-      predictions: parsed.predictions || {},
-      leaderboardSnapshot: parsed.leaderboardSnapshot || { signature: "", ranks: {}, movements: {} }
+      predictions: parsed.predictions || {}
     };
     cleanUnapprovedLocalState(state);
     syncOfficialFixtures(state);
@@ -920,6 +919,7 @@ function renderMatches() {
       if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) return;
       state.predictions[user.email] = state.predictions[user.email] || {};
       state.predictions[user.email][fixture.id] = { scoreA, scoreB, savedAt: new Date().toISOString() };
+      leaderboardMovements = {};
       saveState();
       syncPredictionToBackend(user.email, fixture.id, state.predictions[user.email][fixture.id]);
       renderLeaderboard();
@@ -932,35 +932,24 @@ function renderMatches() {
 function renderLeaderboard() {
   selectedLeaderboardEmail = null;
   const canSeePlayerEmails = Boolean(getCurrentUser());
-  const rows = Object.values(state.users)
-    .filter((user) => isApprovedEmail(user.email))
-    .map((user) => ({ user, ...calculateScore(user.email) }))
-    .sort(
-      (a, b) =>
-        b.points - a.points ||
-        b.exact - a.exact ||
-        b.goalDiff - a.goalDiff ||
-        b.correct - a.correct ||
-        a.user.name.localeCompare(b.user.name)
-    );
+  const rows = getLeaderboardRows();
 
   if (!rows.length) {
     leaderboard.innerHTML = `<div class="empty">No players yet.</div>`;
     return;
   }
 
-  const rankMovements = updateLeaderboardMovements(rows);
   leaderboardEmailByIndex = rows.map((row) => row.user.email);
 
   leaderboard.innerHTML = `
       <div class="leader-header">
         <span></span>
         <span>Player</span>
-        <span class="stat-help" tabindex="0" data-tip="Total points earned from completed matches.">Points</span>
-        <span class="stat-help" tabindex="0" data-tip="Number of exact final scores predicted correctly.">Exact</span>
-        <span class="stat-help" tabindex="0" data-tip="Correct winner and exact goal difference, but not exact score.">Goal diff</span>
-        <span class="stat-help" tabindex="0" data-tip="Correct winner or draw, but not exact score or goal difference.">Correct</span>
         <span class="stat-help" tabindex="0" data-tip="Number of matches where this player saved a prediction.">Predicted</span>
+        <span class="stat-help" tabindex="0" data-tip="Number of exact final scores predicted correctly.">Exact</span>
+        <span class="stat-help" tabindex="0" data-tip="Correct winner or draw, but not exact score.">Result</span>
+        <span class="stat-help" tabindex="0" data-tip="One team's score predicted correctly without exact score.">One score</span>
+        <span class="stat-help" tabindex="0" data-tip="Total points earned from completed matches.">Points</span>
       </div>
       ${rows
         .map(
@@ -968,7 +957,7 @@ function renderLeaderboard() {
         <div class="leader-row leader-rank-${index + 1}" role="button" tabindex="0" data-player-index="${index}">
           <div class="rank-cell">
             <div class="rank">${index + 1}</div>
-            ${renderRankMovementMarkup(rankMovements[row.user.email])}
+            ${renderRankMovementMarkup(leaderboardMovements[row.user.email])}
           </div>
           <div class="leader-name">
             ${renderAvatarMarkup(row.user)}
@@ -980,11 +969,11 @@ function renderLeaderboard() {
               ${canSeePlayerEmails ? `<span>${escapeHtml(row.user.email)}</span>` : ""}
             </div>
           </div>
-          <div class="leader-stat"><span>Points</span><strong>${row.points}</strong></div>
-          <div class="leader-stat"><span>Exact</span><strong>${row.exact}</strong></div>
-          <div class="leader-stat"><span>Goal diff</span><strong>${row.goalDiff}</strong></div>
-          <div class="leader-stat"><span>Correct</span><strong>${row.correct}</strong></div>
           <div class="leader-stat"><span>Predicted</span><strong>${row.predicted}</strong></div>
+          <div class="leader-stat"><span>Exact</span><strong>${row.exact}</strong></div>
+          <div class="leader-stat"><span>Result</span><strong>${row.result}</strong></div>
+          <div class="leader-stat"><span>One score</span><strong>${row.oneScore}</strong></div>
+          <div class="leader-stat"><span>Points</span><strong>${row.points}</strong></div>
         </div>
       `
         )
@@ -1002,6 +991,20 @@ function renderLeaderboard() {
       }
     });
   });
+}
+
+function getLeaderboardRows() {
+  return Object.values(state.users)
+    .filter((user) => isApprovedEmail(user.email))
+    .map((user) => ({ user, ...calculateScore(user.email) }))
+    .sort(
+      (a, b) =>
+        b.points - a.points ||
+        b.exact - a.exact ||
+        b.result - a.result ||
+        b.oneScore - a.oneScore ||
+        a.user.name.localeCompare(b.user.name)
+    );
 }
 
 function renderMissingPredictions() {
@@ -1074,21 +1077,14 @@ function renderFavoriteTeamFlagMarkup(team) {
   return `<span class="leader-favorite-flag" title="Supports ${escapeHtml(team)}" aria-label="Supports ${escapeHtml(team)}">${formatFlagHtml(team)}</span>`;
 }
 
-function updateLeaderboardMovements(rows) {
+function updateLeaderboardMovementsAfterResult(previousRows) {
+  const rows = getLeaderboardRows();
+  const previousRanks = Object.fromEntries(previousRows.map((row, index) => [row.user.email, index + 1]));
   const currentRanks = Object.fromEntries(rows.map((row, index) => [row.user.email, index + 1]));
-  const signature = rows
-    .map((row, index) => `${row.user.email}:${index + 1}:${row.points}:${row.exact}:${row.goalDiff}:${row.correct}:${row.predicted}`)
-    .join("|");
-  const previous = state.leaderboardSnapshot || { signature: "", ranks: {}, movements: {} };
-
-  if (previous.signature === signature) {
-    return previous.movements || {};
-  }
-
   const movements = {};
   rows.forEach((row, index) => {
     const currentRank = index + 1;
-    const previousRank = previous.ranks?.[row.user.email];
+    const previousRank = previousRanks[row.user.email];
     if (previousRank && previousRank > currentRank) {
       movements[row.user.email] = previousRank - currentRank;
     } else if (previousRank && previousRank < currentRank) {
@@ -1098,9 +1094,7 @@ function updateLeaderboardMovements(rows) {
     }
   });
 
-  state.leaderboardSnapshot = { signature, ranks: currentRanks, movements };
-  saveState();
-  return movements;
+  leaderboardMovements = movements;
 }
 
 function renderRankMovementMarkup(movement) {
@@ -1251,7 +1245,9 @@ function renderResultsEditor() {
       const scoreB = Number(scoreBInput.value);
       if (!fixture || !Number.isInteger(scoreA) || !Number.isInteger(scoreB)) return;
       if (!confirmResultUpdate(fixture, scoreA, scoreB)) return;
+      const previousLeaderboardRows = getLeaderboardRows();
       fixture.result = { scoreA, scoreB };
+      updateLeaderboardMovementsAfterResult(previousLeaderboardRows);
       saveState();
       syncResultToBackend(fixture);
       renderLeaderboard();
@@ -1310,7 +1306,9 @@ function renderFixtureList() {
       if (scoreAInput.value !== "" || scoreBInput.value !== "") {
         if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) return;
         if (!confirmResultUpdate(fixture, scoreA, scoreB)) return;
+        const previousLeaderboardRows = getLeaderboardRows();
         fixture.result = { scoreA, scoreB };
+        updateLeaderboardMovementsAfterResult(previousLeaderboardRows);
         syncResultToBackend(fixture);
       }
 
@@ -1377,19 +1375,19 @@ function calculateScore(email) {
       if (prediction) score.predicted += 1;
       if (!prediction || !fixture.result) return score;
 
-      if (prediction.scoreA === fixture.result.scoreA && prediction.scoreB === fixture.result.scoreB) {
-        score.points += 5;
+      const outcome = getPredictionOutcome(prediction, fixture.result);
+      score.points += outcome.points;
+      if (outcome.key === "exact") {
         score.exact += 1;
-      } else if (isCorrectGoalDifference(prediction, fixture.result)) {
-        score.points += 3;
-        score.goalDiff += 1;
-      } else if (matchOutcome(prediction.scoreA, prediction.scoreB) === matchOutcome(fixture.result.scoreA, fixture.result.scoreB)) {
-        score.points += 1;
-        score.correct += 1;
+      } else if (outcome.key === "result-score" || outcome.key === "result") {
+        score.result += 1;
+      }
+      if (outcome.key === "result-score" || outcome.key === "one-score") {
+        score.oneScore += 1;
       }
       return score;
     },
-    { points: 0, exact: 0, goalDiff: 0, correct: 0, predicted: 0 }
+    { points: 0, exact: 0, result: 0, oneScore: 0, predicted: 0 }
   );
 }
 
@@ -1572,14 +1570,6 @@ function formatResult(fixture) {
   return isFixtureLocked(fixture) ? "Awaiting final score" : "Result pending";
 }
 
-function isCorrectGoalDifference(prediction, result) {
-  const predictedOutcome = matchOutcome(prediction.scoreA, prediction.scoreB);
-  const actualOutcome = matchOutcome(result.scoreA, result.scoreB);
-  const predictedDifference = Math.abs(prediction.scoreA - prediction.scoreB);
-  const actualDifference = Math.abs(result.scoreA - result.scoreB);
-  return predictedOutcome !== "D" && predictedOutcome === actualOutcome && predictedDifference === actualDifference;
-}
-
 function showView(viewName) {
   if (viewName === "fixtures" && !isAdminUser()) {
     viewName = "predictions";
@@ -1622,14 +1612,21 @@ function pointsForPrediction(prediction, result) {
 }
 
 function getPredictionOutcome(prediction, result) {
-  if (prediction.scoreA === result.scoreA && prediction.scoreB === result.scoreB) {
+  const exactScore = prediction.scoreA === result.scoreA && prediction.scoreB === result.scoreB;
+  const correctResult = matchOutcome(prediction.scoreA, prediction.scoreB) === matchOutcome(result.scoreA, result.scoreB);
+  const oneTeamScore = prediction.scoreA === result.scoreA || prediction.scoreB === result.scoreB;
+
+  if (exactScore) {
     return { key: "exact", points: 5 };
   }
-  if (isCorrectGoalDifference(prediction, result)) {
-    return { key: "goal-diff", points: 3 };
+  if (correctResult && oneTeamScore) {
+    return { key: "result-score", points: 3 };
   }
-  if (matchOutcome(prediction.scoreA, prediction.scoreB) === matchOutcome(result.scoreA, result.scoreB)) {
-    return { key: "result", points: 1 };
+  if (correctResult) {
+    return { key: "result", points: 2 };
+  }
+  if (oneTeamScore) {
+    return { key: "one-score", points: 1 };
   }
   return { key: "wrong", points: 0 };
 }
