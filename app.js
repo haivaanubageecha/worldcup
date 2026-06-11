@@ -890,11 +890,11 @@ function renderMatches() {
   matchesList.innerHTML = "";
 
   fixtures.forEach((fixture) => {
-    const prediction = user ? getPrediction(user.email, fixture.id) : null;
     const locked = isFixtureLocked(fixture);
     const waitingForTeams = isWaitingForKnockoutTeams(fixture);
     const notOpenYet = !isPredictionWindowOpen(fixture);
     const predictionsClosed = locked || waitingForTeams || notOpenYet;
+    const prediction = user && !notOpenYet ? getValidPrediction(user.email, fixture) : null;
     const card = template.content.firstElementChild.cloneNode(true);
     card.classList.toggle("locked", predictionsClosed);
     card.querySelector(".round").textContent = formatRoundLabel(fixture);
@@ -1045,7 +1045,7 @@ function renderMissingPredictions() {
 
   const rows = openFixtures
     .map((fixture) => {
-      const missingPlayers = players.filter((user) => !getPrediction(user.email, fixture.id));
+      const missingPlayers = players.filter((user) => !getValidPrediction(user.email, fixture));
       return { fixture, missingPlayers };
     })
     .filter((row) => row.missingPlayers.length);
@@ -1180,9 +1180,8 @@ function renderPlayerPredictionsMarkup(email) {
     return "";
   }
 
-  const predictions = state.predictions[user.email] || {};
   const predictedFixtures = state.fixtures
-    .filter((fixture) => predictions[fixture.id] && (isFixtureLocked(fixture) || fixture.result))
+    .filter((fixture) => getValidPrediction(user.email, fixture) && (isFixtureLocked(fixture) || fixture.result))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   if (!predictedFixtures.length) {
@@ -1206,7 +1205,7 @@ function renderPlayerPredictionsMarkup(email) {
       </div>
     </div>
     <div class="prediction-detail-list">
-      ${predictedFixtures.map((fixture) => renderPredictionDetailRow(fixture, predictions[fixture.id])).join("")}
+      ${predictedFixtures.map((fixture) => renderPredictionDetailRow(fixture, getValidPrediction(user.email, fixture))).join("")}
     </div>
   `;
 }
@@ -1384,11 +1383,10 @@ function confirmResultUpdate(fixture, scoreA, scoreB) {
 }
 
 function calculateScore(email) {
-  const predictions = state.predictions[email] || {};
   return state.fixtures.reduce(
     (score, fixture) => {
-      const prediction = predictions[fixture.id];
-      if (prediction) score.predicted += 1;
+      const prediction = getValidPrediction(email, fixture);
+      if (prediction && isPredictionEligibleForLeaderboard(fixture)) score.predicted += 1;
       if (!prediction || !fixture.result) return score;
 
       const outcome = getPredictionOutcome(prediction, fixture.result);
@@ -1405,6 +1403,23 @@ function calculateScore(email) {
     },
     { points: 0, exact: 0, result: 0, oneScore: 0, predicted: 0 }
   );
+}
+
+function isPredictionEligibleForLeaderboard(fixture) {
+  return isPredictionWindowOpen(fixture) || isFixtureLocked(fixture) || Boolean(fixture.result);
+}
+
+function getValidPrediction(email, fixture) {
+  const prediction = getPrediction(email, fixture.id);
+  return isPredictionSavedInWindow(fixture, prediction) ? prediction : null;
+}
+
+function isPredictionSavedInWindow(fixture, prediction) {
+  if (!prediction?.savedAt) return false;
+  const savedAt = new Date(prediction.savedAt).getTime();
+  const opensAt = getPredictionOpenDate(fixture).getTime();
+  const kickoff = new Date(fixture.date).getTime();
+  return savedAt >= opensAt && savedAt < kickoff;
 }
 
 function getCurrentUser() {
@@ -1613,7 +1628,7 @@ function exportCsv() {
   const lines = [["name", "email", "round", "match", "prediction", "result", "points"]];
   Object.values(state.users).filter((user) => isApprovedEmail(user.email)).forEach((user) => {
     state.fixtures.forEach((fixture) => {
-      const prediction = getPrediction(user.email, fixture.id);
+      const prediction = getValidPrediction(user.email, fixture);
       const points = fixture.result && prediction ? pointsForPrediction(prediction, fixture.result) : "";
       lines.push([
         user.name,
