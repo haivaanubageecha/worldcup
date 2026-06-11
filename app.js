@@ -912,8 +912,17 @@ function renderMatches() {
       input.disabled = !user || predictionsClosed;
       input.placeholder = user ? "" : "-";
     });
-    card.querySelector(".score-form button").textContent = getPredictionButtonLabel(user, locked, prediction, waitingForTeams, notOpenYet);
-    card.querySelector(".score-form button").disabled = !user || predictionsClosed;
+    const saveButton = card.querySelector(".score-form button");
+    saveButton.textContent = getPredictionButtonLabel(user, locked, prediction, waitingForTeams, notOpenYet);
+    saveButton.classList.toggle("saved", Boolean(user && prediction && !predictionsClosed));
+    saveButton.disabled = !user || predictionsClosed;
+    card.querySelectorAll(".score").forEach((input) => {
+      input.addEventListener("input", () => {
+        if (!user || predictionsClosed) return;
+        saveButton.textContent = "Save";
+        saveButton.classList.remove("saved");
+      });
+    });
     card.querySelector(".score-form").addEventListener("submit", (event) => {
       event.preventDefault();
       if (!user || predictionsClosed) return;
@@ -925,6 +934,8 @@ function renderMatches() {
       leaderboardMovements = {};
       saveState();
       syncPredictionToBackend(user.email, fixture.id, state.predictions[user.email][fixture.id]);
+      saveButton.textContent = "Saved";
+      saveButton.classList.add("saved");
       renderLeaderboard();
       renderMissingPredictions();
     });
@@ -1492,6 +1503,7 @@ function getPredictionButtonLabel(user, locked, prediction, waitingForTeams = fa
   if (notOpenYet) return "Opens soon";
   if (locked && prediction) return "Locked";
   if (locked) return "Closed";
+  if (prediction) return "Saved";
   return "Save";
 }
 

@@ -603,6 +603,11 @@ button.secondary-light[type="submit"] {
   white-space: nowrap;
 }
 
+.score-form button.saved {
+  color: var(--muted);
+  background: #dde5ed;
+}
+
 .venue {
   display: block;
   margin: 0;
