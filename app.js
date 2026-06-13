@@ -487,7 +487,10 @@ document.querySelector("#fixturesView").addEventListener("submit", (event) => {
 exportButton?.addEventListener("click", exportCsv);
 
 resetButton?.addEventListener("click", async () => {
-  if (!isAdminUser()) return;
+  if (!backend.ready) {
+    renderSyncStatus("Shared database is not connected yet.");
+    return;
+  }
   if (!confirm("Refresh local cache from shared data? This will not delete database data.")) return;
   const currentUser = state.currentUser;
   state = createInitialState();
@@ -857,7 +860,7 @@ function renderSession() {
     adminPredictionPanel?.classList.add("hidden");
   }
   exportButton?.classList.toggle("hidden", !isAdmin);
-  resetButton?.classList.toggle("hidden", !isAdmin);
+  resetButton?.classList.remove("hidden");
   document.querySelectorAll(".admin-only").forEach((element) => element.classList.toggle("hidden", !isAdmin));
   document.querySelector(".fixture-editor")?.classList.toggle("hidden", !isAdmin);
 
