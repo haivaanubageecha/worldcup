@@ -213,6 +213,7 @@ let selectedLeaderboardEmail = null;
 let leaderboardEmailByIndex = [];
 let leaderboardMovements = {};
 let recentlyAddedFixtureId = null;
+let showCompletedMatches = false;
 const backend = {
   client: null,
   ready: false,
@@ -237,6 +238,7 @@ const switchUserButton = document.querySelector("#switchUserButton");
 const matchesList = document.querySelector("#matchesList");
 const matchSearch = document.querySelector("#matchSearch");
 const roundFilter = document.querySelector("#roundFilter");
+const completedMatchesToggle = document.querySelector("#completedMatchesToggle");
 const leaderboard = document.querySelector("#leaderboard");
 const rankingsList = document.querySelector("#rankingsList");
 const resultsEditor = document.querySelector("#resultsEditor");
@@ -417,6 +419,10 @@ switchUserButton.addEventListener("click", () => {
 
 matchSearch.addEventListener("input", renderMatches);
 roundFilter.addEventListener("change", renderMatches);
+completedMatchesToggle?.addEventListener("click", () => {
+  showCompletedMatches = !showCompletedMatches;
+  renderMatches();
+});
 
 addResultButton.addEventListener("click", () => {
   if (!isAdminUser()) return;
@@ -616,16 +622,18 @@ async function loadSharedState() {
   try {
     const [{ data: players, error: playersError }, { data: predictions, error: predictionsError }, { data: results, error: resultsError }] =
       await Promise.all([
-        backend.client.from("players").select("*"),
-        backend.client.from("predictions").select("*"),
-        backend.client.from("results").select("*")
+        backend.client.from("players").select("email,name,favorite_team"),
+        backend.client.from("predictions").select("email,fixture_id,score_a,score_b,saved_at").in("email", APPROVED_EMAILS),
+        backend.client.from("results").select("fixture_id,score_a,score_b")
       ]);
 
     if (playersError || predictionsError || resultsError) {
       throw playersError || predictionsError || resultsError;
     }
 
-    const { data: fixtureOverrides, error: fixtureOverridesError } = await backend.client.from("fixture_overrides").select("*");
+    const { data: fixtureOverrides, error: fixtureOverridesError } = await backend.client
+      .from("fixture_overrides")
+      .select("fixture_id,team_a,team_b,round,venue,kickoff_at");
     if (fixtureOverridesError) {
       console.warn("Fixture override table is not ready yet.", fixtureOverridesError);
     }
@@ -885,8 +893,12 @@ function renderMatches() {
   const user = getCurrentUser();
   const query = matchSearch.value.trim().toLowerCase();
   const round = roundFilter.value;
+  if (completedMatchesToggle) {
+    completedMatchesToggle.textContent = showCompletedMatches ? "Hide completed matches" : "Show completed matches";
+  }
   const fixtures = state.fixtures
     .filter((fixture) => round === "all" || fixture.round === round)
+    .filter((fixture) => showCompletedMatches || !isCompletedMatch(fixture))
     .filter((fixture) => {
       const haystack = `${fixture.teamA} ${fixture.teamB} ${fixture.round} ${fixture.venue}`.toLowerCase();
       return haystack.includes(query);
@@ -894,7 +906,7 @@ function renderMatches() {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   if (!fixtures.length) {
-    matchesList.innerHTML = `<div class="empty">No matches found.</div>`;
+    matchesList.innerHTML = `<div class="empty">${showCompletedMatches ? "No matches found." : "No upcoming or open matches found. Use Show completed matches to view finished games."}</div>`;
     return;
   }
 
@@ -1586,6 +1598,10 @@ function calculateScore(email) {
 
 function isPredictionEligibleForLeaderboard(fixture) {
   return isPredictionWindowOpen(fixture) || isFixtureLocked(fixture) || Boolean(fixture.result);
+}
+
+function isCompletedMatch(fixture) {
+  return Boolean(fixture.result);
 }
 
 function getValidPrediction(email, fixture) {
