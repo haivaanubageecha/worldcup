@@ -612,6 +612,11 @@ button.secondary-light[type="submit"] {
   background: #dde5ed;
 }
 
+.score-form button.save-failed {
+  color: white;
+  background: var(--red);
+}
+
 .venue {
   display: block;
   margin: 0;

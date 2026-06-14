@@ -728,7 +728,7 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
 }
 
 async function syncPlayerToBackend(user) {
-  if (!backend.ready || !backend.loadedShared || !user?.email || !isApprovedEmail(user.email)) return;
+  if (!backend.ready || !backend.loadedShared || !user?.email || !isApprovedEmail(user.email)) return false;
 
   const playerRow = {
     email: normalizeEmail(user.email),
@@ -739,14 +739,19 @@ async function syncPlayerToBackend(user) {
   };
 
   const { error } = await backend.client.from("players").upsert(playerRow, { onConflict: "email" });
-  if (error) console.error(error);
+  if (error) {
+    console.error(error);
+    return false;
+  }
+  return true;
 }
 
 async function syncPredictionToBackend(email, fixtureId, prediction) {
   email = normalizeEmail(email);
   if (!backend.ready || !backend.loadedShared || !email || !prediction || !isApprovedEmail(email)) return false;
 
-  await syncPlayerToBackend(state.users[email] || { email, name: email.split("@")[0] });
+  const playerSynced = await syncPlayerToBackend(state.users[email] || { email, name: email.split("@")[0] });
+  if (!playerSynced) return false;
   const { error } = await backend.client.from("predictions").upsert(
     {
       email,
@@ -947,21 +952,42 @@ function renderMatches() {
         saveButton.classList.remove("saved");
       });
     });
-    card.querySelector(".score-form").addEventListener("submit", (event) => {
+    card.querySelector(".score-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!user || predictionsClosed) return;
       const scoreA = Number(card.querySelector(".score-a").value);
       const scoreB = Number(card.querySelector(".score-b").value);
       if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) return;
+      const previousPrediction = getPrediction(user.email, fixture.id);
+      const prediction = { scoreA, scoreB, savedAt: new Date().toISOString() };
       state.predictions[user.email] = state.predictions[user.email] || {};
-      state.predictions[user.email][fixture.id] = { scoreA, scoreB, savedAt: new Date().toISOString() };
+      state.predictions[user.email][fixture.id] = prediction;
       leaderboardMovements = {};
       saveState();
-      syncPredictionToBackend(user.email, fixture.id, state.predictions[user.email][fixture.id]);
-      saveButton.textContent = "Saved";
-      saveButton.classList.add("saved");
+      saveButton.textContent = "Saving...";
+      saveButton.disabled = true;
+      saveButton.classList.remove("saved", "save-failed");
       renderLeaderboard();
       renderMissingPredictions();
+      const synced = await syncPredictionToBackend(user.email, fixture.id, prediction);
+      saveButton.disabled = false;
+      if (synced) {
+        saveButton.textContent = "Saved";
+        saveButton.classList.add("saved");
+        renderSyncStatus("Prediction saved to Supabase.");
+      } else {
+        if (previousPrediction) {
+          state.predictions[user.email][fixture.id] = previousPrediction;
+        } else {
+          delete state.predictions[user.email][fixture.id];
+        }
+        saveState();
+        saveButton.textContent = "Try again";
+        saveButton.classList.add("save-failed");
+        renderLeaderboard();
+        renderMissingPredictions();
+        renderSyncStatus("Prediction was not saved to Supabase. Please check your connection and try again.");
+      }
     });
     matchesList.append(card);
   });
