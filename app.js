@@ -232,7 +232,6 @@ const signInButton = document.querySelector("#signInButton");
 const showSignUpButton = document.querySelector("#showSignUpButton");
 const createAccountButton = document.querySelector("#createAccountButton");
 const showSignInButton = document.querySelector("#showSignInButton");
-const photoInput = document.querySelector("#photoInput");
 const switchUserButton = document.querySelector("#switchUserButton");
 const matchesList = document.querySelector("#matchesList");
 const matchSearch = document.querySelector("#matchSearch");
@@ -413,18 +412,6 @@ switchUserButton.addEventListener("click", () => {
     saveState();
     render();
   });
-});
-
-photoInput.addEventListener("change", async () => {
-  const user = getCurrentUser();
-  const file = photoInput.files?.[0];
-  if (!user || !file) return;
-
-  user.photo = await readImageAsDataUrl(file);
-  photoInput.value = "";
-  saveState();
-  syncPlayerToBackend(user);
-  render();
 });
 
 matchSearch.addEventListener("input", renderMatches);
@@ -666,7 +653,6 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
     state.users[email] = {
       email,
       name: player.name,
-      photo: player.photo || "",
       favoriteTeam: player.favorite_team || player.favoriteTeam || previousUsers[email]?.favoriteTeam || ""
     };
   });
@@ -738,7 +724,7 @@ async function syncPlayerToBackend(user) {
   const playerRow = {
     email: normalizeEmail(user.email),
     name: user.name || user.email.split("@")[0],
-    photo: user.photo || null,
+    photo: null,
     favorite_team: isWorldCupTeam(user.favoriteTeam) ? user.favoriteTeam : null,
     updated_at: new Date().toISOString()
   };
@@ -1716,31 +1702,17 @@ function getPredictionButtonLabel(user, locked, prediction, waitingForTeams = fa
 
 function renderAvatar(element, user) {
   element.textContent = "";
-  element.style.backgroundImage = user.photo ? `url("${user.photo}")` : "";
-  element.classList.toggle("has-photo", Boolean(user.photo));
-  if (!user.photo) {
-    element.textContent = getInitial(user);
-  }
+  element.style.backgroundImage = "";
+  element.classList.remove("has-photo");
+  element.textContent = getInitial(user);
 }
 
 function renderAvatarMarkup(user) {
-  if (user.photo) {
-    return `<span class="avatar avatar-small has-photo" style="background-image: url('${escapeHtml(user.photo)}')" aria-hidden="true"></span>`;
-  }
   return `<span class="avatar avatar-small" aria-hidden="true">${escapeHtml(getInitial(user))}</span>`;
 }
 
 function getInitial(user) {
   return (user.name || user.email || "?").slice(0, 1).toUpperCase();
-}
-
-function readImageAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => resolve(String(reader.result)));
-    reader.addEventListener("error", reject);
-    reader.readAsDataURL(file);
-  });
 }
 
 function matchOutcome(scoreA, scoreB) {

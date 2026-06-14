@@ -225,12 +225,6 @@ button.secondary-light[type="submit"] {
   background: var(--red);
 }
 
-.avatar.has-photo {
-  background-color: #eef3f7;
-  background-position: center;
-  background-size: cover;
-}
-
 .avatar-small {
   width: 38px;
   flex: 0 0 auto;
