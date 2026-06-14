@@ -3,6 +3,7 @@ const APP_DATA_VERSION = "20260605-approved-email-enforced";
 const DISPLAY_TIME_ZONE = "Indian/Maldives";
 const DISPLAY_TIME_ZONE_LABEL = "MVT";
 const PREDICTION_OPEN_HOURS = 24;
+const SHARED_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ADMIN_EMAILS = ["ahmedsimaaz09@gmail.com", "ahmedbych@gmail.com"];
 const APPROVED_EMAILS = [
   "aasifappi@gmail.com",
@@ -574,7 +575,7 @@ async function initBackend() {
     renderSyncStatus("Shared database connection failed. Local changes are still saved in this browser.");
   });
 
-  window.setInterval(loadSharedState, 30000);
+  window.setInterval(loadSharedState, SHARED_REFRESH_INTERVAL_MS);
 }
 
 async function restoreAuthSession() {
