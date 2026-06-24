@@ -214,6 +214,7 @@ let leaderboardEmailByIndex = [];
 let leaderboardMovements = {};
 let recentlyAddedFixtureId = null;
 let showCompletedMatches = false;
+let showCompletedResults = false;
 const backend = {
   client: null,
   ready: false,
@@ -250,6 +251,7 @@ const adminPredictionPanel = document.querySelector("#adminPredictionPanel");
 const fixtureList = document.querySelector("#fixtureList");
 const resultsSearch = document.querySelector("#resultsSearch");
 const resultsRoundFilter = document.querySelector("#resultsRoundFilter");
+const completedResultsToggle = document.querySelector("#completedResultsToggle");
 const exportButton = document.querySelector("#exportButton");
 const resetButton = document.querySelector("#resetButton");
 const syncStatus = document.querySelector("#syncStatus");
@@ -448,6 +450,10 @@ adminPredictionButton?.addEventListener("click", () => {
 
 resultsSearch?.addEventListener("input", renderFixtureList);
 resultsRoundFilter?.addEventListener("change", renderFixtureList);
+completedResultsToggle?.addEventListener("click", () => {
+  showCompletedResults = !showCompletedResults;
+  renderFixtureList();
+});
 
 document.querySelector("#fixturesView").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -728,7 +734,7 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
 }
 
 async function syncPlayerToBackend(user) {
-  if (!backend.ready || !backend.loadedShared || !user?.email || !isApprovedEmail(user.email)) return false;
+  if (!backend.ready || !user?.email || !isApprovedEmail(user.email)) return false;
 
   const playerRow = {
     email: normalizeEmail(user.email),
@@ -748,7 +754,7 @@ async function syncPlayerToBackend(user) {
 
 async function syncPredictionToBackend(email, fixtureId, prediction) {
   email = normalizeEmail(email);
-  if (!backend.ready || !backend.loadedShared || !email || !prediction || !isApprovedEmail(email)) return false;
+  if (!backend.ready || !email || !prediction || !isApprovedEmail(email)) return false;
 
   const playerSynced = await syncPlayerToBackend(state.users[email] || { email, name: email.split("@")[0] });
   if (!playerSynced) return false;
@@ -766,11 +772,24 @@ async function syncPredictionToBackend(email, fixtureId, prediction) {
     console.error(error);
     return false;
   }
-  return true;
+
+  const { data: savedPrediction, error: verifyError } = await backend.client
+    .from("predictions")
+    .select("score_a,score_b")
+    .eq("email", email)
+    .eq("fixture_id", fixtureId)
+    .maybeSingle();
+
+  if (verifyError) {
+    console.error(verifyError);
+    return false;
+  }
+
+  return savedPrediction?.score_a === prediction.scoreA && savedPrediction?.score_b === prediction.scoreB;
 }
 
 async function syncResultToBackend(fixture) {
-  if (!backend.ready || !backend.loadedShared || !fixture?.result) return;
+  if (!backend.ready || !fixture?.result) return;
 
   const { error } = await backend.client.from("results").upsert(
     {
@@ -986,7 +1005,11 @@ function renderMatches() {
         saveButton.classList.add("save-failed");
         renderLeaderboard();
         renderMissingPredictions();
-        renderSyncStatus("Prediction was not saved to Supabase. Please check your connection and try again.");
+        renderSyncStatus(
+          backend.ready
+            ? "Prediction was not saved to Supabase. Please click Refresh from Supabase, then try again."
+            : "Supabase is not connected. Please refresh the page and sign in again."
+        );
       }
     });
     matchesList.append(card);
@@ -1492,8 +1515,12 @@ function renderFixtureList() {
   const canEditResults = isAdminUser();
   const query = (resultsSearch?.value || "").trim().toLowerCase();
   const round = resultsRoundFilter?.value || "all";
+  if (completedResultsToggle) {
+    completedResultsToggle.textContent = showCompletedResults ? "Hide completed fixtures" : "Show completed fixtures";
+  }
   const fixtures = state.fixtures
     .filter((fixture) => round === "all" || fixture.round === round)
+    .filter((fixture) => showCompletedResults || !isCompletedMatch(fixture))
     .filter((fixture) => {
       const haystack = `${fixture.teamA} ${fixture.teamB} ${fixture.round} ${fixture.venue}`.toLowerCase();
       return haystack.includes(query);
@@ -1501,7 +1528,7 @@ function renderFixtureList() {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   if (!fixtures.length) {
-    fixtureList.innerHTML = `<div class="empty">No results found.</div>`;
+    fixtureList.innerHTML = `<div class="empty">${showCompletedResults ? "No results found." : "No fixtures need final scores right now. Use Show completed fixtures to view finished games."}</div>`;
     return;
   }
 
