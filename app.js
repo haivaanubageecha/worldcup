@@ -986,6 +986,12 @@ function renderMatches() {
         saveButton.classList.add("saved");
         renderSyncStatus("Prediction saved to Supabase.");
         await loadSharedState();
+        state.predictions[user.email] = state.predictions[user.email] || {};
+        state.predictions[user.email][fixture.id] = getPrediction(user.email, fixture.id) || prediction;
+        saveState();
+        renderMatches();
+        renderLeaderboard();
+        renderMissingPredictions();
       } else {
         if (previousPrediction) {
           state.predictions[user.email][fixture.id] = previousPrediction;
