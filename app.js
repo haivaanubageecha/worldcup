@@ -776,20 +776,7 @@ async function syncPredictionToBackend(email, fixtureId, prediction) {
     return { ok: false, error: error.message || "Prediction save failed." };
   }
 
-  const { data: savedPrediction, error: verifyError } = await backend.client
-    .from("predictions")
-    .select("score_a,score_b")
-    .eq("email", email)
-    .eq("fixture_id", fixtureId)
-    .maybeSingle();
-
-  if (verifyError) {
-    console.error(verifyError);
-    return { ok: false, error: verifyError.message || "Saved prediction could not be checked." };
-  }
-
-  const verified = savedPrediction?.score_a === prediction.scoreA && savedPrediction?.score_b === prediction.scoreB;
-  return verified ? { ok: true } : { ok: false, error: "Supabase did not return the saved prediction." };
+  return { ok: true };
 }
 
 async function syncResultToBackend(fixture) {
@@ -998,6 +985,7 @@ function renderMatches() {
         saveButton.textContent = "Saved";
         saveButton.classList.add("saved");
         renderSyncStatus("Prediction saved to Supabase.");
+        await loadSharedState();
       } else {
         if (previousPrediction) {
           state.predictions[user.email][fixture.id] = previousPrediction;
