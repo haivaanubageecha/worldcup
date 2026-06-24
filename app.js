@@ -734,12 +734,13 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
 }
 
 async function syncPlayerToBackend(user) {
-  if (!backend.ready || !user?.email || !isApprovedEmail(user.email)) return false;
+  if (!backend.ready || !user?.email || !isApprovedEmail(user.email)) {
+    return { ok: false, error: "Supabase is not connected or this email is not approved." };
+  }
 
   const playerRow = {
     email: normalizeEmail(user.email),
     name: user.name || user.email.split("@")[0],
-    photo: null,
     favorite_team: isWorldCupTeam(user.favoriteTeam) ? user.favoriteTeam : null,
     updated_at: new Date().toISOString()
   };
@@ -747,17 +748,19 @@ async function syncPlayerToBackend(user) {
   const { error } = await backend.client.from("players").upsert(playerRow, { onConflict: "email" });
   if (error) {
     console.error(error);
-    return false;
+    return { ok: false, error: error.message || "Player sync failed." };
   }
-  return true;
+  return { ok: true };
 }
 
 async function syncPredictionToBackend(email, fixtureId, prediction) {
   email = normalizeEmail(email);
-  if (!backend.ready || !email || !prediction || !isApprovedEmail(email)) return false;
+  if (!backend.ready || !email || !prediction || !isApprovedEmail(email)) {
+    return { ok: false, error: "Supabase is not connected or this email is not approved." };
+  }
 
   const playerSynced = await syncPlayerToBackend(state.users[email] || { email, name: email.split("@")[0] });
-  if (!playerSynced) return false;
+  if (!playerSynced.ok) return playerSynced;
   const { error } = await backend.client.from("predictions").upsert(
     {
       email,
@@ -770,7 +773,7 @@ async function syncPredictionToBackend(email, fixtureId, prediction) {
   );
   if (error) {
     console.error(error);
-    return false;
+    return { ok: false, error: error.message || "Prediction save failed." };
   }
 
   const { data: savedPrediction, error: verifyError } = await backend.client
@@ -782,10 +785,11 @@ async function syncPredictionToBackend(email, fixtureId, prediction) {
 
   if (verifyError) {
     console.error(verifyError);
-    return false;
+    return { ok: false, error: verifyError.message || "Saved prediction could not be checked." };
   }
 
-  return savedPrediction?.score_a === prediction.scoreA && savedPrediction?.score_b === prediction.scoreB;
+  const verified = savedPrediction?.score_a === prediction.scoreA && savedPrediction?.score_b === prediction.scoreB;
+  return verified ? { ok: true } : { ok: false, error: "Supabase did not return the saved prediction." };
 }
 
 async function syncResultToBackend(fixture) {
@@ -990,7 +994,7 @@ function renderMatches() {
       renderMissingPredictions();
       const synced = await syncPredictionToBackend(user.email, fixture.id, prediction);
       saveButton.disabled = false;
-      if (synced) {
+      if (synced.ok) {
         saveButton.textContent = "Saved";
         saveButton.classList.add("saved");
         renderSyncStatus("Prediction saved to Supabase.");
@@ -1006,9 +1010,9 @@ function renderMatches() {
         renderLeaderboard();
         renderMissingPredictions();
         renderSyncStatus(
-          backend.ready
-            ? "Prediction was not saved to Supabase. Please click Refresh from Supabase, then try again."
-            : "Supabase is not connected. Please refresh the page and sign in again."
+          synced.error
+            ? `Prediction was not saved to Supabase: ${synced.error}`
+            : "Prediction was not saved to Supabase. Please click Refresh from Supabase, then try again."
         );
       }
     });
@@ -1273,7 +1277,7 @@ async function handleAdminPredictionSubmit(event) {
   renderMissingPredictions();
 
   const synced = await syncPredictionToBackend(email, fixture.id, prediction);
-  const syncText = backend.ready && backend.loadedShared && !synced ? " Saved locally, but database sync failed." : "";
+  const syncText = !synced.ok ? ` Saved locally, but database sync failed: ${synced.error || "unknown error"}` : "";
   renderAdminPredictionPanel(`Saved ${scoreA}-${scoreB} for ${player.name}.${syncText}`);
 }
 
