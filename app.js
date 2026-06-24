@@ -1651,15 +1651,9 @@ function isCompletedMatch(fixture) {
 
 function getValidPrediction(email, fixture) {
   const prediction = getPrediction(email, fixture.id);
-  return isPredictionSavedInWindow(fixture, prediction) ? prediction : null;
-}
-
-function isPredictionSavedInWindow(fixture, prediction) {
-  if (!prediction?.savedAt) return false;
-  const savedAt = new Date(prediction.savedAt).getTime();
-  const opensAt = getPredictionOpenDate(fixture).getTime();
-  const kickoff = new Date(fixture.date).getTime();
-  return savedAt >= opensAt && savedAt < kickoff;
+  if (!prediction) return null;
+  if (!isPredictionWindowOpen(fixture) && !isFixtureLocked(fixture) && !fixture.result) return null;
+  return prediction;
 }
 
 function getCurrentUser() {
