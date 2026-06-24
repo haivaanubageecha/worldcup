@@ -626,6 +626,7 @@ async function loadSharedState() {
 
   backend.syncing = true;
   try {
+    const currentEmail = normalizeEmail(state.currentUser);
     const [{ data: players, error: playersError }, { data: predictions, error: predictionsError }, { data: results, error: resultsError }] =
       await Promise.all([
         backend.client.from("players").select("email,name,favorite_team"),
@@ -637,6 +638,20 @@ async function loadSharedState() {
       throw playersError || predictionsError || resultsError;
     }
 
+    let sharedPredictions = predictions || [];
+    if (currentEmail && isApprovedEmail(currentEmail)) {
+      const { data: ownPredictions, error: ownPredictionsError } = await backend.client
+        .from("predictions")
+        .select("email,fixture_id,score_a,score_b,saved_at")
+        .eq("email", currentEmail);
+      if (ownPredictionsError) throw ownPredictionsError;
+      const mergedPredictions = new Map(sharedPredictions.map((prediction) => [`${normalizeEmail(prediction.email)}:${prediction.fixture_id}`, prediction]));
+      (ownPredictions || []).forEach((prediction) => {
+        mergedPredictions.set(`${normalizeEmail(prediction.email)}:${prediction.fixture_id}`, prediction);
+      });
+      sharedPredictions = [...mergedPredictions.values()];
+    }
+
     const { data: fixtureOverrides, error: fixtureOverridesError } = await backend.client
       .from("fixture_overrides")
       .select("fixture_id,team_a,team_b,round,venue,kickoff_at");
@@ -644,7 +659,7 @@ async function loadSharedState() {
       console.warn("Fixture override table is not ready yet.", fixtureOverridesError);
     }
 
-    applySharedRows({ players, predictions, results, fixtureOverrides: fixtureOverrides || [] });
+    applySharedRows({ players, predictions: sharedPredictions, results, fixtureOverrides: fixtureOverrides || [] });
     backend.loadedShared = true;
     saveState();
     render();
