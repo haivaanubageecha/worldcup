@@ -627,18 +627,18 @@ async function loadSharedState() {
   backend.syncing = true;
   try {
     const currentEmail = normalizeEmail(state.currentUser);
-    const [{ data: players, error: playersError }, { data: predictions, error: predictionsError }, { data: results, error: resultsError }] =
+    const [{ data: players, error: playersError }, predictions, { data: results, error: resultsError }] =
       await Promise.all([
         backend.client.from("players").select("email,name,favorite_team"),
-        backend.client.from("predictions").select("email,fixture_id,score_a,score_b,saved_at").in("email", APPROVED_EMAILS),
+        fetchAllSharedPredictions(),
         backend.client.from("results").select("fixture_id,score_a,score_b")
       ]);
 
-    if (playersError || predictionsError || resultsError) {
-      throw playersError || predictionsError || resultsError;
+    if (playersError || resultsError) {
+      throw playersError || resultsError;
     }
 
-    let sharedPredictions = predictions || [];
+    let sharedPredictions = predictions;
     if (currentEmail && isApprovedEmail(currentEmail)) {
       const { data: ownPredictions, error: ownPredictionsError } = await backend.client
         .from("predictions")
@@ -672,6 +672,28 @@ async function loadSharedState() {
   }
 }
 
+async function fetchAllSharedPredictions() {
+  const pageSize = 1000;
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await backend.client
+      .from("predictions")
+      .select("email,fixture_id,score_a,score_b,saved_at")
+      .order("email", { ascending: true })
+      .order("fixture_id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rows;
+}
+
 function applySharedRows({ players = [], predictions = [], results = [], fixtureOverrides = [] }) {
   const previousUsers = state.users || {};
   state.users = {};
@@ -694,9 +716,11 @@ function applySharedRows({ players = [], predictions = [], results = [], fixture
 
   predictions.forEach((prediction) => {
     const email = normalizeEmail(prediction.email);
+    const fixtureId = normalizeFixtureId(prediction.fixture_id);
     if (!isApprovedEmail(email)) return;
+    if (!fixtureId) return;
     state.predictions[email] = state.predictions[email] || {};
-    state.predictions[email][prediction.fixture_id] = {
+    state.predictions[email][fixtureId] = {
       scoreA: prediction.score_a,
       scoreB: prediction.score_b,
       savedAt: prediction.saved_at
@@ -1693,6 +1717,14 @@ function isApprovedEmail(email) {
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function normalizeFixtureId(fixtureId) {
+  const value = String(fixtureId || "").trim();
+  if (!value) return "";
+  const matchNumber = value.match(/^#?(\d+)$/);
+  if (matchNumber) return `match-${matchNumber[1]}`;
+  return value;
 }
 
 function cleanUnapprovedLocalState(nextState) {
